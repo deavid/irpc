@@ -7,8 +7,6 @@ import traceback
 import json
 import re
 
-import asynchat_test as srv
-
 
 class chatter(asynchat.async_chat):
     def __init__(self,sock, addr):
@@ -92,11 +90,11 @@ class Remote:
         #self.chat = chatter(sock = self.socket, addr = host)
         
         self.remote_functions = [
-                'getfunctionlist',
+                'getFunctionList',
             ]
         
         self.updateFunctions()        
-        self.remote_functions = self.getfunctionlist()
+        self.remote_functions = self.getFunctionList()
         self.updateFunctions()
         
     def updateFunctions(self):
@@ -124,7 +122,7 @@ def check_test1():
 def test1():
     lista = [1,2,3]
 
-    for i in range(10000):
+    for i in range(1200):
         lista = lista[:3]
         suma = remote.mysum(lista)
         lista.append(suma)
@@ -146,9 +144,9 @@ def test2():
 def main():
     global remote
     remote = Remote(host='127.0.0.1', port=10123)
-    
-    import cProfile
-    cProfile.run('test1()')
+    test1()
+    #import cProfile
+    #cProfile.run('test1()')
     
     
     

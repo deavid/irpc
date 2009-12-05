@@ -5,7 +5,7 @@ import socketserver
 import signal
 import time
 
-import serverchatter
+import irpcchatter
 
 exit = False
 
@@ -20,7 +20,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
         self.local_address = self.request.getsockname()
         self.remote_address = self.request.getpeername()
         print("Starting recieving thread for", self.remote_address)
-        self.chatter = serverchatter.BaseChatter(sock = self.request, addr = self.remote_address)
+        self.chatter = irpcchatter.BaseChatter(sock = self.request, addr = self.remote_address)
         self.chatter.setup(self.server.lang) # Configura y da de alta todo el lenguaje 
         self.chatter.loop()
         print("Ending thread for", self.remote_address)
@@ -36,7 +36,7 @@ def startServer(HOST="", PORT=10000):
     server = ThreadedTCPServer((HOST, PORT), ThreadedTCPRequestHandler)
     ip, port = server.server_address
 
-    server.lang = serverchatter.BaseLanguageSpec()
+    server.lang = irpcchatter.BaseLanguageSpec()
 
     # Start a thread with the server -- that thread will then start one
     # more thread for each request
@@ -47,45 +47,17 @@ def startServer(HOST="", PORT=10000):
     
     return server, server_thread
     
-@serverchatter.published
-def ordenarLista(lista):
-    """ 
-        Devuelve una lista orrdenada a partir de la lista que se le pasa como parametro "lista"
-    """
-    return list(sorted(lista))
     
 
-listItems = []
-
-@serverchatter.published
-def addItem(item):
-    global listItems
-    listItems.append(item)
-    return True
-
-@serverchatter.published
-def removeItem(item):
-    global listItems
-    listItems.remove(item)
-    return True
     
 
-@serverchatter.published
-def getItems():
-    global listItems
-    return listItems
-    
-@serverchatter.published
-def clearItems():
-    global listItems
-    listItems = []
-    return True
-    
-    
+def import_examplefuncitons():
+    import examplefunctions
 
 
 def main():
     global exit
+    import_examplefuncitons()
     exit = False
     signal.signal(signal.SIGINT, sigINT)
     server, thread = startServer(PORT=10123)
