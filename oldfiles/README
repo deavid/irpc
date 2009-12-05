@@ -1,0 +1,64 @@
+============= RPE Protocol ===============
+
+RPE, or Remote Process Execution, is a protocol aimed to opening a "interactive session" to a remote process.
+
+In contrast to standard RPC, each request does not imply one connection. Connections are used for sessions (which in the future could be saved and restored?), so you can login to your process and make the calls you want to do. You can (and should) leave this session opened, for later use.
+
+This is intended to solve several problems of RPC when is used for several things that is not good for. For example, when it is used for communicate two processes across the network at a higher frequency of short calls. And, at last, when you want the rpc server to call back when something occurs, you have to deploy another rpc servor, or you must have the client checking again and again by doing calls over the network to know if the server wants to give "something back".
+
+
+In a clear fashion, we could have:
+
+Identifier: byte that means what's next
+! -> call
+> -> answer
+/ -> session command
+# -> information
+$ -> variable
+
+An example:
+
+/load pdaservice
+# pdaservice started
+
+!help
+$help.0> new registerBuffer> commands
+$help.0.commands.name> "Help of available commands"
+$help.0.commands.regH> ( str name , str description )
+$help.0.commands> new register> ( "help", "gives help of availiable commands" ) 
+$help.0.commands> new register> ( "startRFID", "Enables the reception of RFID tags" ) 
+$help.0> exit OK
+
+!help.command startRFID
+$help.0> new registerBuffer> options
+$help.0.options.name> Help of available options for "startRFID"
+$help.0.options.regH> ( str name , str description )
+$help.0.options> new register> ( "help", "gives help of availiable commands" ) 
+
+!startRFID
+$startRFID.0> new registerBuffer> tags
+$startRFID.0.tags.name> "List of readed tags"
+$startRFID.0.tags.regH> ( str EPC )
+
+.
+.
+.
+
+$startRFID.0.tags> new register> ( "01345AFC031" ) 
+.
+.
+
+$startRFID.0.tags> new register> ( "01345AFC132" ) 
+
+!startRFID.0.end
+
+
+
+
+
+
+
+
+
+/unload pdaservice
+# pdaservice stopped

@@ -4,9 +4,12 @@ import socket
 import traceback
 import json
 import re
+import pydoc
+
+publishedFunctions = []
 
 class ProcessReturn:
-    def __init__(self, id = None, type = None, value = None, error = None):
+    def __init__(self, id = "", type = "", value = None, error = None):
         self.id = id
         self.type = type
         self.value = value
@@ -27,9 +30,21 @@ class BaseChatter(asynchat.async_chat):
         self.obuffer = b""
         self.set_terminator(b"\n")
         self.addr = addr
-        self.fifo = asynchat.fifo()
-        self.push_with_producer(self.fifo)
+        #self.fifo = asynchat.fifo()
+        #self.push_with_producer(self.fifo)
         self.language = None
+        
+    def loop(self):
+        try:
+            asyncore.loop(map = {self.sock.fileno(): self})
+        except asyncore.select.error:
+            pass
+        except:
+            print("Error inesperado en el bucle de recepcion")
+            print(traceback.format_exc())
+            
+        
+        
 
     def setup(self, languageSpec):
         self.language = LanguageProcessor(chatter = self)
@@ -37,7 +52,7 @@ class BaseChatter(asynchat.async_chat):
             self.language.addCmd(cmd.key,cmd.name,cmd.classtype,cmd.children)
         #self.language.addType("!","execute",CMD_Execute)
         # self.cmds = self.language.cmds
-        
+        languageSpec.setup(self)
         """ 
             permite accdeder a los comandos del siguiente modo:
             
@@ -88,20 +103,22 @@ class LanguageProcessor:
 
     def addCmd(self, key, name, classtype, children):
         class_instance = classtype(language = self)
-        setattr(self.cmd,name,class_instance)
+        setattr(self.cmds,name,class_instance)
         self.commandtype_list[key] = class_instance
         for cmd in children:
             class_instance.addCmd(cmd.key,cmd.name,cmd.classtype,cmd.children)
     
     def process(self, commandline):
         # The first arg must be always a single character
+        if len(commandline)==0: return
         commandtype = commandline[0]
 
-        if commandtype not in commandtype_list:
+        if commandtype not in self.commandtype_list:
             print("Command of type %s not in our known comandtype list" % commandtype)
             print(repr(commandline))
+            return
         
-        class_object = commandtype_list[commandtype]
+        class_object = self.commandtype_list[commandtype]
         try:
             if class_object: class_object.process(commandline[1:])
         except:
@@ -125,9 +142,20 @@ class CMD_Execute:
         #    "call" : CallFunction(),
             #"!set" : setVariable,
         #}
+        self.registered_functions = {
+        }    
+        self.registerFn(self.getFunctionList)
+
+    def registerFn(self,fn, name = None):
+        if not name: name = fn.__name__
+        self.registered_functions[name] = fn
+        
+    def getFunctionList(self):
+        return list(self.registered_functions.keys())
+
     def addCmd(self, key, name, classtype, children):
         class_instance = classtype(parent = self)
-        setattr(self.cmd,name,class_instance)
+        setattr(self.cmds,name,class_instance)
         self.registered_execCommands[key] = class_instance
         for cmd in children:
             class_instance.addCmd(cmd.key,cmd.name,cmd.classtype,cmd.children)
@@ -156,7 +184,8 @@ class CMD_Execute:
             txtError += traceback.format_exc()
             ret = ProcessReturn(error = txtError)
             
-        self.fifo.push(self.encodeAnswer(ret))
+        #self.fifo.push(self.encodeAnswer(ret))
+        self.chatter.push(self.encodeAnswer(ret))
             
         
     
@@ -167,7 +196,7 @@ class CMD_Execute:
         # the 1st param is the command name
         list_arg0 = cmdline[0].split("@")
         cmdname = list_arg0[0]
-        idnum = None
+        idnum = ""
         if len(list_arg0)>1:
             idnum = list_arg0[1]
             if len(idnum) == 0:
@@ -214,12 +243,12 @@ class CMD_Execute:
                 return ret
             
                 
-        if cmdname not in registered_execCommands:
+        if cmdname not in self.registered_execCommands:
             ret.error = "Error. %s not registered.\n" % cmdname
             ret.error += traceback.format_exc()
             return ret
             
-        obj = registered_execCommands[cmdname]
+        obj = self.registered_execCommands[cmdname]
         try:
             obj.execute(ret,cmdname,args1, kwargs1,*args2,**kwargs2)
         except:
@@ -230,53 +259,113 @@ class CMD_Execute:
         return ret
 
         
-        
-class CallFunction:
-    def __init__(self, parent = None):
+class BaseExecFunction:
+    def __init__(self, parent):
         self.parent = parent
-        self.registered_functions = {
-        }    
-        self.registerFn(self.getFunctionList)
+        self.setup()
     
-    def execute(self,ret,cmdname, far_args, far_kwargs, fn):    
-        if fn not in self.registered_functions:
+    def setup(self):
+        pass
+    
+    def execute(self,ret,cmdname, far_args, far_kwargs, fn): 
+        if fn not in self.parent.registered_functions:
             ret.error = "%s is not a registered function!" % fn
             return 
         try:
-            funct = registered_functions[fn]
-            ret.value = funct(*far_args,**far_kwargs)
+            funct = self.parent.registered_functions[fn]
+            ret.value = self.call(funct,far_args,far_kwargs)
         except:
             ret.error = "Error ocurred executing %s\n" % fn
             ret.error += traceback.format_exc()
             
         return 
-        
-    def registerFn(self,fn, name = None)
-        if not name: name = fn.__name__
-        self.registered_functions[name] = fn
-        
-    def getFunctionList(self):
-        return list(self.registered_functions.keys())
     
+    def call(self, funct, args, kwargs):
+        pass
+        
+
+class CallFunction(BaseExecFunction):
+    def call(self, funct, args, kwargs):
+        return funct(*args,**kwargs)
+        
 
 
+class HelpFunction(BaseExecFunction):
+    def setup(self):
+        self.help = pydoc.TextDoc()
+
+    def call(self, funct, args, kwargs):
+        return pydoc.plain(self.help.docroutine(funct))
+
+
+class CommandList:
+    def __init__(self, key, name, classtype):
+        self.key = key
+        self.name = name
+        self.classtype = classtype
+        self.children = []
+
+    
+class LanguageSpec:
+    def __init__(self):
+        self.commands = []
+        
+    
+        
+
+class BaseLanguageSpec(LanguageSpec):
+    def __init__(self):
+        LanguageSpec.__init__(self)
+
+        execute = CommandList("!","execute", CMD_Execute)
+        execute_call = CommandList("call","call", CallFunction)
+        execute_help = CommandList("help","help", HelpFunction)
+        execute.children.append(execute_call)
+        execute.children.append(execute_help)
+        self.commands.append(execute)
+        
+    def setup(self, chatter):
+        global publishedFunctions
+        
+        for fn in publishedFunctions:
+            chatter.language.cmds.execute.registerFn(fn)
+    
+# ----- Decorators -------
+def published(fn):
+    global publishedFunctions
+    publishedFunctions.append(fn)
+    return fn
+
+
+# ----------------------------
 
 def main():
 
-    conndest = ('', 10123)
+    @published
+    def testFunction(x = None):
+        "A test to try the @published decorator. It returns repr(x)"
+        return "testValue " + repr(x)
 
+    conndest = ('', 10123)
+    lang = BaseLanguageSpec()
+    
     sck1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sck1.bind(conndest)
     sck1.listen(1)
     conn, addr = sck1.accept()
 
-    chat1 = chatter(sock = conn, addr = addr)
+    chat1 = BaseChatter(sock = conn, addr = addr)
+    chat1.setup(lang) # Configura y da de alta todo el lenguaje 
+    # Creación de los distintos permisos de ejecucion
+    
+    
 
     print("Starting asyncore loop")
     try:
         import cProfile
         #cProfile.run('asyncore.loop()')
-        asyncore.loop()
+        chat1.loop()
+        #asyncore.loop()
     except:
         print(traceback.format_exc())
     print("End loop")
