@@ -126,6 +126,34 @@ class LanguageProcessor:
             print(commandline)
             print(traceback.format_exc())
             
+class CMD_Answer:
+    def __init__(self,language):
+        self.language = language
+        self.chatter = language.chatter
+        # todos devuelven en el siguiente formato:
+        self.patternAnswer = re.compile("(?P<id>\w*)\t(?P<type>\w*)\t(?P<value>[^\t]*)\t")
+    def process(self, command):
+        try:
+            ret = self._process(command)
+        except:
+            txtError = "unexpected error when parsing answer: %s\n" % command
+            txtError += traceback.format_exc()
+            ret = ProcessReturn(error = txtError)
+            
+        #self.fifo.push(self.encodeAnswer(ret))
+        #self.chatter.push(self.encodeAnswer(ret))
+        if ret.value:
+            print(ret.value)
+    
+    def _process(self,answer):
+        m1 = self.patternAnswer.match(answer)
+        if not m1:
+            return ProcessReturn(error = "Answer does not match the required pattern. (%s)" % answer)
+        d1 = m1.groupindex
+        
+        print d1
+        
+        
         
         
 class CMD_Execute:
@@ -322,7 +350,11 @@ class BaseLanguageSpec(LanguageSpec):
         execute_help = CommandList("help","help", HelpFunction)
         execute.children.append(execute_call)
         execute.children.append(execute_help)
+
         self.commands.append(execute)
+
+        answer = CommandList(">","answer", CMD_Answer)
+        self.commands.append(answer)
         
     def setup(self, chatter):
         global publishedFunctions
