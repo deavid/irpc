@@ -2,9 +2,11 @@
 import asynchat, asyncore
 import socket
 import traceback
+import threading
 import json
 import re
 import pydoc
+import taskshed
 
 publishedFunctions = []
 
@@ -33,10 +35,11 @@ class BaseChatter(asynchat.async_chat):
         #self.fifo = asynchat.fifo()
         #self.push_with_producer(self.fifo)
         self.language = None
+        self.comm_rlock = threading.RLock()
         
     def loop(self):
         try:
-            asyncore.loop(map = {self.sock.fileno(): self})
+            asyncore.loop(map = {self.sock.fileno(): self},timeout = 0.01)
         except asyncore.select.error:
             pass
         except:
@@ -44,7 +47,13 @@ class BaseChatter(asynchat.async_chat):
             print(traceback.format_exc())
             
         
-        
+    def push(self, string):
+        #self.comm_rlock.acquire()
+        #print(">>>",repr(string))  # DEBUG
+        #ret = asynchat.async_chat.push(self,string) 
+        ret = self.sock.sendall(string)
+        #self.comm_rlock.release()
+        return ret
 
     def setup(self, languageSpec):
         self.language = LanguageProcessor(chatter = self)
@@ -73,7 +82,9 @@ class BaseChatter(asynchat.async_chat):
         try:
             input_data = b"".join(self.ibuffer)        
             self.ibuffer = []
+            #self.comm_rlock.acquire()
             self.process_data(input_data.decode("utf8"))
+            #self.comm_rlock.release()
         except:
             print(traceback.format_exc())
 
@@ -81,6 +92,7 @@ class BaseChatter(asynchat.async_chat):
         if self.language:
             lines = data.split("\n")
             for line in lines:
+                # print("<<<",repr(line)) # DEBUG
                 self.language.process(line)
             
             
@@ -125,14 +137,37 @@ class LanguageProcessor:
             print("Exception occurred when trying to execute client command:")
             print(commandline)
             print(traceback.format_exc())
-            
+
+class QueuedAnswer:
+    def __init__(self, id):
+        self.id = id
+        self.type = ""
+        self.value = ""
+        self.answered = False
+        self.answered_event = threading.Event()
+
+    def wait(self, timeout = None):
+        self.answered_event.wait(timeout)
+        return self.answered
+        
+        
+
 class CMD_Answer:
     def __init__(self,language):
         self.language = language
         self.chatter = language.chatter
         # todos devuelven en el siguiente formato:
-        self.patternAnswer = re.compile("(?P<id>\w*)\t(?P<type>\w*)\t(?P<value>[^\t]*)\t")
+        self.patternAnswer = re.compile("(?P<id>\w*)\t(?P<type>\w*)\t(?P<value>[^\t]*)")
+        self.answerqueue = {}
+        
+    def queueAnswerFor(self,id):
+        self.answerqueue[id] = QueuedAnswer(id)
+        # print("queued answer for %s" % id)
+        return self.answerqueue[id]
+    
+    
     def process(self, command):
+
         try:
             ret = self._process(command)
         except:
@@ -146,12 +181,34 @@ class CMD_Answer:
             print(ret.value)
     
     def _process(self,answer):
+        ret = ProcessReturn()
         m1 = self.patternAnswer.match(answer)
         if not m1:
-            return ProcessReturn(error = "Answer does not match the required pattern. (%s)" % answer)
-        d1 = m1.groupindex
-        
-        print d1
+            print("Pattern match error on answer")
+            ret.error = "Answer does not match the required pattern. (%s)" % answer
+            return ret
+        d1 = m1.groupdict("")
+        id = d1['id']
+        type = d1['type']
+        try:
+            value = json.loads(d1['value'])
+        except:
+            ret.error = "Error parsing return value: %s\n" % param
+            ret.error += traceback.format_exc()
+            return ret
+
+        if id not in self.answerqueue:
+            print("WARN: Recieved answer id %s which is not in the answerQueue." % repr(id))
+        else:
+            self.answerqueue[id].type = type
+            self.answerqueue[id].value = value
+            self.answerqueue[id].answered = True
+            self.answerqueue[id].answered_event.set()
+            del self.answerqueue[id]
+            
+            
+
+        return ret
         
         
         
