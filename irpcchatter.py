@@ -54,21 +54,26 @@ class BaseChatter(asynchat.async_chat):
         #ret = asynchat.async_chat.push(self,string) 
         done = False
         error = False
+        errors = 0
+        self.obuffer += string
+        bytes = 0
         while not done:
             try:
-                ret = self.sock.sendall(string)
-                done = True
+                bytes = self.sock.send(self.obuffer[:4096])
+                self.obuffer = self.obuffer[bytes:] 
+                if len(self.obuffer)==0 : done = True
             except socket.error:
                 done = False
-                if not error:  print("Network overflow, waiting. . . ")
+                #if not error:  print("Network overflow, waiting. . . ")
                 error = True
-                time.sleep(0.1)
+                errors +=1
+                time.sleep(0.05)
         
-        if error: print("Packet sent! ")
+        if errors>2: print("Packet sent! %d times retried." % errors)
                 
             
         #self.comm_rlock.release()
-        return ret
+        return True
 
     def setup(self, languageSpec):
         self.language = LanguageProcessor(chatter = self)
