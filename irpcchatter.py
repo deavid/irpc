@@ -53,13 +53,19 @@ class BaseChatter(asynchat.async_chat):
         #print(">>>",repr(string))  # DEBUG
         #ret = asynchat.async_chat.push(self,string) 
         done = False
+        error = False
         while not done:
             try:
                 ret = self.sock.sendall(string)
                 done = True
             except socket.error:
                 done = False
-                time.sleep(0.02)
+                if not error:  print("Network overflow, waiting. . . ")
+                error = True
+                time.sleep(0.1)
+        
+        if error: print("Packet sent! ")
+                
             
         #self.comm_rlock.release()
         return ret
