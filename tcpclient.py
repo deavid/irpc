@@ -139,7 +139,7 @@ def testSerialized(remote,iterations):
     
 def testConcurrent(remote,iterations):
     lstExe = []
-    for n in range(10000):
+    for n in range(iterations):
         lstExe.append(remote.call("addItem", item=n, getReturnValue = False))
         
     for exe in lstExe: exe.getReturnValue()

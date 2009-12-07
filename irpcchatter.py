@@ -7,6 +7,7 @@ import json
 import re
 import pydoc
 import taskshed
+import time 
 
 publishedFunctions = []
 
@@ -51,7 +52,15 @@ class BaseChatter(asynchat.async_chat):
         #self.comm_rlock.acquire()
         #print(">>>",repr(string))  # DEBUG
         #ret = asynchat.async_chat.push(self,string) 
-        ret = self.sock.sendall(string)
+        done = False
+        while not done:
+            try:
+                ret = self.sock.sendall(string)
+                done = True
+            except socket.error:
+                done = False
+                time.sleep(0.02)
+            
         #self.comm_rlock.release()
         return ret
 
