@@ -20,11 +20,11 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
         self.local_address = self.request.getsockname()
         self.remote_address = self.request.getpeername()
         self.request.setblocking(0)
-        print("Starting recieving thread for", self.remote_address)
+        # print("Starting recieving thread for", self.remote_address) # DEBUG
         self.chatter = irpcchatter.BaseChatter(sock = self.request, addr = self.remote_address)
         self.chatter.setup(self.server.lang) # Configura y da de alta todo el lenguaje 
         self.chatter.loop()
-        print("Ending thread for", self.remote_address)
+        # print("Ending thread for", self.remote_address) # DEBUG
     
 
         

@@ -116,7 +116,7 @@ class RemoteIRPC:
 
         self.local_address = self.socket.getsockname()
         self.remote_address = self.socket.getpeername()
-        print("Conected to ", self.remote_address)
+        # print("Conected to ", self.remote_address) # debug
 
         self.chatter = irpcchatter.BaseChatter(sock = self.socket, addr = self.addr)
         self.chatter.setup(self.lang) # Configura y da de alta todo el lenguaje 
