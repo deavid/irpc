@@ -7,13 +7,14 @@ import json
 import irpcchatter
 
 class ExecuteRemoteCommand:
-    def __init__(self,chatter, command, local_args = [], local_kwargs = {}, args = [], kwargs = {}):
+    def __init__(self,chatter, command, local_args = [], local_kwargs = {}, args = [], kwargs = {}, autoremove_id = True):
         self.chatter = chatter
         self.prepared = False
         self.started = False
         self.executed = False
         self.returnValue = None
         self.queuedAnswer = None
+        self.autoremove_id = autoremove_id
         
         self.command = command
         self.local_args = local_args
@@ -23,10 +24,17 @@ class ExecuteRemoteCommand:
         self.trama = ""
         
     def getUnqueuedRandID(self):
-        def key():
-            import random
-            i = random.randint(0,255)
-            return "x%X" % i
+        if self.autoremove_id:
+            def key():
+                import random
+                i = random.randint(0,255)
+                return "x%X" % i
+        else:
+            def key():
+                import random
+                i = random.randint(0,256*256-1)
+                return "%s%X" % (self.command[:2],i)
+            
         k = key()
         while k in self.chatter.language.cmds.answer.answerqueue: k = key()
         return k
@@ -41,7 +49,7 @@ class ExecuteRemoteCommand:
             idobj = ""
         else:
             idobj = "@" + id
-        self.queuedAnswer = self.chatter.language.cmds.answer.queueAnswerFor(id)
+        self.queuedAnswer = self.chatter.language.cmds.answer.queueAnswerFor(id, self.autoremove_id)
             
         trama_args = [
             "!%s%s" % (self.command,idobj),
@@ -67,14 +75,14 @@ class ExecuteRemoteCommand:
         self.trama = "\t".join(trama_args) + "\n"
 
         
-        self.prepareds = True
+        self.prepared = True
         
     def start(self):
         if not self.prepared: self.prepare()
         self.chatter.push(self.trama.encode("utf8"))
         self.started = True
 
-    def getReturnValue(self, timeout = None):    
+    def getReturnValue(self, timeout = 10):    
         if not self.started: self.start()
         if self.executed:
             return self.returnValue
@@ -93,7 +101,7 @@ class ExecuteRemoteCommand:
             return answer.value
         
         if answer.type == "Exception":
-            raise(NameError,answer.value)
+            raise NameError(answer.value)
             
 
 
@@ -102,6 +110,8 @@ class RemoteIRPC:
         self.addr = host
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((host,port))
+        self.socket.setblocking(0)
+        
         self.lang = irpcchatter.BaseLanguageSpec()
 
         self.local_address = self.socket.getsockname()
@@ -114,6 +124,7 @@ class RemoteIRPC:
         self.thread.setDaemon(True)
         self.thread.start()
         self.timeout = 30
+        self.monitored_events = {}
 
     def call(self, fn, *args,getReturnValue = True, **kwargs): 
         #ret = self.execute("call",local_kwargs={"fn":fn},args = args,kwargs = kwargs)
@@ -127,7 +138,68 @@ class RemoteIRPC:
         else:
             return exe
 
+    def monitor(self, ev, *args, **kwargs): 
+        if ev in self.monitored_events:
+            raise NameError("Error: tried to monitor event '%s' twice." % ev)
+        
+        exe = ExecuteRemoteCommand(self.chatter, "monitor", local_kwargs={"ev":ev},args = args,kwargs = kwargs, autoremove_id = False)
 
+        exe.prepare()
+        exe.queuedAnswer.event_name = ev
+        exe.queuedAnswer.callback = self.monitor_callback
+        exe.queuedAnswer.connected_functions = []
+        exe.start()
+        self.monitored_events[ev] = exe
+    
+    def monitor_callback(self, answer):
+        if answer.type != "Signal": return
+        if hasattr(answer,"connected_functions"):
+            try:
+                akwargs = dict(answer.value)
+                for fn, fargs, fkwargs in answer.connected_functions:
+                    kwargs = dict(list(akwargs.items()) + list(fkwargs.items()))
+                    try:
+                        fn(*fargs,**kwargs)
+                    except:
+                        print("Error ocurred when calling connected functions for event:")
+                        print(traceback.format_exc())
+                        
+            except:
+                print("Error ocurred when calling connected functions for event:")
+                print(traceback.format_exc())
+                
+                
+        #print("Received signal for event %s: %s" % (answer.event_name,answer.value))
+        
+        
+    def connect(self, ev, fn, *args, **kwargs):
+        """
+        Connects the event 'ev' to the function 'fn'.
+        The function fn is called every time the event is raised.
+        The function receives the keyword arguments from the signal.
+        """
+        if ev not in self.monitored_events: self.monitor(ev)
+        
+        exe = self.monitored_events[ev] 
+        obj = (fn,args,kwargs)
+        if obj not in exe.queuedAnswer.connected_functions:
+            exe.queuedAnswer.connected_functions.append(obj)
+        else:
+            print("Warning: function connected twice to the event. Ignoring.")
+            
+    
+    def disconnect(self, ev, fn, *args, **kwargs):
+        """
+        Disconnects the function fn from the event ev
+        """
+        obj = (fn,args,kwargs)
+        if obj in exe.queuedAnswer.connected_functions:
+            exe.queuedAnswer.connected_functions.remove(obj)
+        else:
+            print("Warning: function not connected to the event. Ignoring.")
+            
+        
+        
         
         
 
@@ -145,12 +217,14 @@ def testConcurrent(remote,iterations):
     for exe in lstExe: exe.getReturnValue()
     
     
+def testEvent(item):
+    print("Event for Item:",item)
 
 def main():
     remote = RemoteIRPC("localhost",10123)
-    
+    remote.connect("testEvent",testEvent)
     remote.call("clearItems")
-    #testSerialized(remote,iterations = 10000)
+    #testSerialized(remote,iterations = 200)
     testConcurrent(remote,iterations = 10000)
     print(sum(remote.call("getItems")))
     

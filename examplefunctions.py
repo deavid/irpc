@@ -1,10 +1,12 @@
 import irpcchatter
-
+import random
 listItems = []
 
 @irpcchatter.published
 def addItem(item):
     global listItems
+    if random.randint(0,1200) == 0:
+        testEvent.signalRaise(item=item)
     listItems.append(item)
     return True
 
@@ -56,3 +58,4 @@ def reverselist(lista):
     """
     return list(reversed(lista))
     
+testEvent = irpcchatter.RemoteEvent(name="testEvent",signal_args=["item"])

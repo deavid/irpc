@@ -10,6 +10,7 @@ import taskshed
 import time 
 
 publishedFunctions = []
+publishedEvents = []
 
 class ProcessReturn:
     def __init__(self, id = "", type = "", value = None, error = None):
@@ -49,30 +50,37 @@ class BaseChatter(asynchat.async_chat):
             
         
     def push(self, string):
-        #self.comm_rlock.acquire()
         #print(">>>",repr(string))  # DEBUG
         #ret = asynchat.async_chat.push(self,string) 
+        if self.sock.fileno() < 0: return False
         done = False
         error = False
         errors = 0
         self.obuffer += string
         bytes = 0
-        while not done:
-            try:
-                bytes = self.sock.send(self.obuffer[:4096])
-                self.obuffer = self.obuffer[bytes:] 
-                if len(self.obuffer)==0 : done = True
-            except socket.error:
-                done = False
-                #if not error:  print("Network overflow, waiting. . . ")
-                error = True
-                errors +=1
-                time.sleep(0.05)
-        
-        if errors>2: print("Packet sent! %d times retried." % errors)
-                
+        if self.comm_rlock.acquire(False):
+            while not done:
+                try:
+                    bytes = self.sock.send(self.obuffer[:4096])
+                    if bytes == 0: break
+                    self.obuffer = self.obuffer[bytes:] 
+                    if len(self.obuffer)==0 : done = True
+                except socket.error as e:
+                    
+                    done = False
+                    #if not error:  print("Network overflow, waiting. . . ")
+                    error = True
+                    errors +=1
+                    if errors>10: 
+                        print("Packet NOT sent! %d times retried." % errors)
+                        print("Error:", e)
+                        self.sock.close()
+                        break
+                    time.sleep(0.05)
             
-        #self.comm_rlock.release()
+            self.comm_rlock.release()        
+            
+        
         return True
 
     def setup(self, languageSpec):
@@ -102,9 +110,9 @@ class BaseChatter(asynchat.async_chat):
         try:
             input_data = b"".join(self.ibuffer)        
             self.ibuffer = []
-            #self.comm_rlock.acquire()
+            self.comm_rlock.acquire()
             self.process_data(input_data.decode("utf8"))
-            #self.comm_rlock.release()
+            self.comm_rlock.release()
         except:
             print(traceback.format_exc())
 
@@ -112,7 +120,7 @@ class BaseChatter(asynchat.async_chat):
         if self.language:
             lines = data.split("\n")
             for line in lines:
-                # print("<<<",repr(line)) # DEBUG
+                #print("<<<",repr(line)) # DEBUG
                 self.language.process(line)
             
             
@@ -159,16 +167,43 @@ class LanguageProcessor:
             print(traceback.format_exc())
 
 class QueuedAnswer:
-    def __init__(self, id):
+    def __init__(self, id, cmdanswer = None, autoremove = True):
+        if id in cmdanswer.answerqueue:
+            raise(NameError,"QueuedAnswer %s already queued!" % id)
         self.id = id
         self.type = ""
         self.value = ""
         self.answered = False
         self.answered_event = threading.Event()
+        self.autoremove = autoremove
+        self.cmdanswer = cmdanswer
+        self.callback = None
+        if self.cmdanswer:
+            self.cmdanswer.answerqueue[id] = self
 
     def wait(self, timeout = None):
         self.answered_event.wait(timeout)
         return self.answered
+        
+    def setAnswer(self,type,value):
+        self.type = type
+        self.value = value
+        self.answered = True
+        self.answered_event.set()
+        if self.autoremove and self.cmdanswer:  del self.cmdanswer.answerqueue[self.id]
+        #if type:       print("Answer:",self.id,type,value, self.callback)
+            
+            
+        
+        if self.callback: 
+            try:
+                self.callback(self)
+            except:
+                print("Error trying to execute callback %s", self.callback.__name__)
+                print(traceback.format_exc())
+                
+        
+        
         
         
 
@@ -180,10 +215,8 @@ class CMD_Answer:
         self.patternAnswer = re.compile("(?P<id>\w*)\t(?P<type>\w*)\t(?P<value>[^\t]*)")
         self.answerqueue = {}
         
-    def queueAnswerFor(self,id):
-        self.answerqueue[id] = QueuedAnswer(id)
-        # print("queued answer for %s" % id)
-        return self.answerqueue[id]
+    def queueAnswerFor(self,id, autoremove = True):
+        return QueuedAnswer(id, self, autoremove)
     
     
     def process(self, command):
@@ -193,6 +226,7 @@ class CMD_Answer:
         except:
             txtError = "unexpected error when parsing answer: %s\n" % command
             txtError += traceback.format_exc()
+            print(txtError)
             ret = ProcessReturn(error = txtError)
             
         #self.fifo.push(self.encodeAnswer(ret))
@@ -218,13 +252,9 @@ class CMD_Answer:
             return ret
 
         if id not in self.answerqueue:
-            print("WARN: Recieved answer id %s which is not in the answerQueue." % repr(id))
+            print("WARN: Received answer id %s which is not in the answerQueue." % repr(id))
         else:
-            self.answerqueue[id].type = type
-            self.answerqueue[id].value = value
-            self.answerqueue[id].answered = True
-            self.answerqueue[id].answered_event.set()
-            del self.answerqueue[id]
+            self.answerqueue[id].setAnswer(type,value)
             
             
 
@@ -251,12 +281,23 @@ class CMD_Execute:
         }    
         self.registerFn(self.getFunctionList)
 
+        self.registered_events = {
+        }    
+        self.registerFn(self.getEventList)
+
     def registerFn(self,fn, name = None):
         if not name: name = fn.__name__
         self.registered_functions[name] = fn
+
+    def registerEvent(self,event):
+        name = event.name
+        self.registered_events[name] = event
         
     def getFunctionList(self):
         return list(self.registered_functions.keys())
+
+    def getEventList(self):
+        return list(self.registered_events.keys())
 
     def addCmd(self, key, name, classtype, children):
         class_instance = classtype(parent = self)
@@ -363,6 +404,71 @@ class CMD_Execute:
         
         return ret
 
+class RemoteEvent:
+    def __init__(self,name, signal_args = [], returnTypes = [], docstring = "", public = True, *args,**kwargs):
+        self.name = name # event's name
+        self.signal_kwargs = signal_args
+        self.callback_list = []
+        self.returnTypes = returnTypes
+        self.event = threading.Event()
+        self.docstring = docstring
+        if public:
+            global publishedEvents
+            publishedEvents.append(self)
+        
+    def getSignalSignature(self):
+        sig = "signal %s(%s)" % (self.name, ", ".join(self.signal_kwargs))
+        if len(self.returnTypes):
+            sig += " -> ( %s )" % (" | ".join([x.__name__ for x in self.returnTypes]))
+        if self.docstring:
+            sig += "\n%s\n" % self.docstring
+        return sig
+    
+    def registerCallback(self, fn, *args, **kwargs):
+        self.callback_list.append((fn,args,kwargs))
+        
+    def unregisterCallback(self, fn, *args, **kwargs):
+        self.callback_list.remove((fn,args,kwargs))
+        
+    def signalRaise(self,*args,**kwargs):
+        for k in kwargs.keys():
+            if k not in self.signal_kwargs:
+                raise NameError("Unexpected argument '%s'" % k)
+        lstargs = list(args)    
+        for k in self.signal_kwargs:
+            if k not in kwargs:
+                try:
+                    newarg = lstargs.pop(0)
+                except IndexError:
+                    print("Not enough arguments for raising signal (expecting arg %s)" % k)
+                    return None
+                kwargs[k] = newarg
+        
+        self.event.set()
+        returned_values = []
+        for fn,fargs,fkwargs in self.callback_list:
+            try:
+                tkwargs = dict(tuple(kwargs.items()) + tuple(fkwargs.items()))
+                ret = fn(*fargs,**tkwargs)
+                if len(self.returnTypes):
+                    validret = False
+                    for t in self.returnTypes:
+                        if type(ret) is t:
+                            returned_values.append(ret)
+                            validret = True
+                            break
+                    if not validret:
+                        print("WARN: callback %s -> %s returned a invalid value: %s" % (self.name,fn.__name__, repr(ret)))
+            except:
+                print("Error in callback %s -> %s ; traceback follows:" % (self.name,fn.__name__))
+                print(traceback.format_exc())
+                
+            
+        
+        self.event.clear()
+        
+        return returned_values 
+    
         
 class BaseExecFunction:
     def __init__(self, parent):
@@ -372,35 +478,64 @@ class BaseExecFunction:
     def setup(self):
         pass
     
-    def execute(self,ret,cmdname, far_args, far_kwargs, fn): 
-        if fn not in self.parent.registered_functions:
-            ret.error = "%s is not a registered function!" % fn
+    def execute(self,ret,cmdname, far_args, far_kwargs, fn = None, ev = None): 
+        if fn:
+            if fn not in self.parent.registered_functions:
+                ret.error = "%s is not a registered function!" % fn
+                return 
+            try:
+                funct = self.parent.registered_functions[fn]
+                ret.value = self.callFn(funct,far_args,far_kwargs,ret)
+            except:
+                ret.error = "Error ocurred executing %s\n" % fn
+                ret.error += traceback.format_exc()
             return 
-        try:
-            funct = self.parent.registered_functions[fn]
-            ret.value = self.call(funct,far_args,far_kwargs)
-        except:
-            ret.error = "Error ocurred executing %s\n" % fn
-            ret.error += traceback.format_exc()
-            
-        return 
+        if ev:
+            if ev not in self.parent.registered_events:
+                ret.error = "%s is not a registered event!" % ev
+                return 
+            try:
+                event = self.parent.registered_events[ev]
+                ret.value = self.callEv(event,far_args,far_kwargs,ret)
+            except:
+                ret.error = "Error ocurred executing EVENT %s\n" % ev
+                ret.error += traceback.format_exc()
+            return 
     
-    def call(self, funct, args, kwargs):
-        pass
+    def callFn(self, funct, args, kwargs,ret):
+        raise NameError("This command does NOT have support for functions!")
+
+    def callEv(self, event, args, kwargs,ret):
+        raise NameError("This command does NOT have support for events!")
+    
         
 
 class CallFunction(BaseExecFunction):
-    def call(self, funct, args, kwargs):
+    def callFn(self, funct, args, kwargs,ret):
         return funct(*args,**kwargs)
         
+    def callEv(self, event, args, kwargs,ret):
+        return event.signalRaise(*args,**kwargs)
 
 
 class HelpFunction(BaseExecFunction):
     def setup(self):
         self.help = pydoc.TextDoc()
 
-    def call(self, funct, args, kwargs):
+    def callFn(self, funct, args, kwargs,ret):
         return pydoc.plain(self.help.docroutine(funct))
+
+    def callEv(self, event, args, kwargs,ret):
+        return event.getSignalSignature()
+
+class MonitorFunction(BaseExecFunction):
+    def callEv(self, event, args, kwargs,ret):
+        event.registerCallback(self.event_callback,event_id = ret.id)
+    
+    def event_callback(self,event_id, **kwargs):
+        ret = ProcessReturn(id = event_id, type = "Signal", value = kwargs)
+        self.parent.chatter.push(self.parent.encodeAnswer(ret))
+        
 
 
 class CommandList:
@@ -425,6 +560,7 @@ class BaseLanguageSpec(LanguageSpec):
         execute = CommandList("!","execute", CMD_Execute)
         execute_call = CommandList("call","call", CallFunction)
         execute_help = CommandList("help","help", HelpFunction)
+        execute_help = CommandList("monitor","monitor", MonitorFunction)
         execute.children.append(execute_call)
         execute.children.append(execute_help)
 
@@ -435,9 +571,13 @@ class BaseLanguageSpec(LanguageSpec):
         
     def setup(self, chatter):
         global publishedFunctions
+        global publishedEvents
         
         for fn in publishedFunctions:
             chatter.language.cmds.execute.registerFn(fn)
+        
+        for event in publishedEvents:
+            chatter.language.cmds.execute.registerEvent(event)
     
 # ----- Decorators -------
 def published(fn):
