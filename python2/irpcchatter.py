@@ -45,50 +45,117 @@ class BaseChatter(asynchat.async_chat):
         #self.push_with_producer(self.fifo)
         self.language = None
         self.comm_rlock = threading.RLock()
+        self.consecutive_errors = 0
+        self.found_terminator = False
+        self.error = False
         
     def loop(self):
+        while not self.error:
+            try:
+                self.sock.setblocking(0)
+            except:
+                self.error = True
+                return False
+            data = ""
+            try:
+                data = self.sock.recv(1024)
+            except:
+                pass
+            if len(data):
+                self.ibuffer.append(data)
+                if '\n' in data: self.found_terminator = True
+                if self.found_terminator: self.processInputBuffer()
+
+    def processInputBuffer(self):
         try:
-            asyncore.loop(map = {self.sock.fileno(): self},timeout = 0.01)
-        except asyncore.select.error:
-            pass
+            input_data = "".join(self.ibuffer)        
+            input_lines = input_data.split("\n")
+            self.found_terminator = False
+            if len(input_lines[-1])>0:
+                self.ibuffer = [input_lines[-1]]
+            else:
+                self.ibuffer = []
+                
+            for line in input_lines[:-1]:
+                #print "<<<", line
+                self.comm_rlock.acquire()
+                self.process_data(line.decode("utf8"))
+                self.comm_rlock.release()
+        except:
+            print traceback.format_exc()
+            
+
+    
+    def _loop(self):
+        n = None
+        try:
+            n = self.sock.fileno()
+        except:
+            n = None
+        if n is None: return False
+        try:
+            asyncore.loop(map = {n : self},timeout = 0.01)
+        #except asyncore.select.error:
+        #    pass
         except:
             print u"Error inesperado en el bucle de recepcion"
             print traceback.format_exc()
             
-        
     def push(self, string):
+        r = False
+        if self.error: return False
+        self.comm_rlock.acquire()
+        try:
+            r = self._push(string)
+        except:
+            r = False
+        self.comm_rlock.release()
+        
+        if r:
+            self.consecutive_errors = 0
+        else:
+            self.consecutive_errors += 1
+            if self.consecutive_errors > 3:
+                print "Error en el envio"
+                self.error = True
+                self.sock.close()
+        return r
+        
+    def _push(self, string):
         #print ">>>",repr(string)   # DEBUG
         #ret = asynchat.async_chat.push(self,string) 
         try:
-            if self.sock.fileno() < 0: return False
+            if self.sock.fileno() < 0: 
+                self.sock.close()
+                return False
         except:
+            self.sock.close()
             return False
         done = False
         error = False
         errors = 0
         self.obuffer += string
         bytes = 0
-        if self.comm_rlock.acquire(False):
-            while not done:
-                try:
-                    bytes = self.sock.send(self.obuffer[:4096])
-                    if bytes == 0: break
-                    self.obuffer = self.obuffer[bytes:] 
-                    if len(self.obuffer)==0 : done = True
-                except socket.error , e:
-                    
-                    done = False
-                    #if not error:  print "Network overflow, waiting. . . "
-                    error = True
-                    errors +=1
-                    if errors>10: 
-                        print "Packet NOT sent! %d times retried." % errors
-                        print "Error:", e
-                        self.sock.close()
-                        break
-                    time.sleep(0.05)
+        while not done:
+            try:
+                bytes = self.sock.send(self.obuffer[:4096])
+                if bytes == 0: break
+                self.obuffer = self.obuffer[bytes:] 
+                if len(self.obuffer)==0 : done = True
+            except socket.error , e:
+                
+                done = False
+                #if not error:  print "Network overflow, waiting. . . "
+                error = True
+                errors +=1
+                if errors>4: 
+                    print "Packet NOT sent! %d times retried." % errors
+                    print "Error:", e
+                    self.sock.close()
+                    return False
+                    break
+                time.sleep(0.02)
             
-            self.comm_rlock.release()        
             
         
         return True

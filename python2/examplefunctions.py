@@ -8,7 +8,7 @@ listItems = []
 @irpcchatter.published
 def addItem(item):
     global listItems
-    if random.randint(0,1200) == 0:
+    if random.randint(0,120) == 0:
         testEvent.signalRaise(item=item)
     listItems.append(item)
     return True

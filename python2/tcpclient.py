@@ -231,8 +231,8 @@ def main():
     remote = RemoteIRPC("localhost",10123)
     remote.connect("testEvent",testEvent)
     remote.call("clearItems")
-    #testSerialized(remote,iterations = 200)
-    testConcurrent(remote,iterations = 10000)
+    #testSerialized(remote,iterations = 1000)
+    testConcurrent(remote,iterations = 1000)
     print sum(remote.call("getItems"))
     
     print "done"
