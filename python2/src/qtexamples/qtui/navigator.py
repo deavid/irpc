@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'navigator.ui'
 #
-# Created: Tue Jan 12 21:22:13 2010
+# Created: Tue Jan 12 22:59:14 2010
 #      by: PyQt4 UI code generator 4.6
 #
 # WARNING! All changes made in this file will be lost!

@@ -30,12 +30,16 @@ class BaseClass:
         
 
 class BaseChatter(asynchat.async_chat):
+    stdout_debug = False
+    memory_debug = False
+    
     def __init__(self,sock, addr):
         try:
             asynchat.async_chat.__init__(self, sock = sock) 
         except:
             asynchat.async_chat.__init__(self, conn = sock) # python 2.5
-            
+        self.debuglog = []
+        
         self.sock = sock
         self.ibuffer = []
         self.obuffer = ""
@@ -75,7 +79,14 @@ class BaseChatter(asynchat.async_chat):
 	    else:
 		time.sleep(0.01)
 		
-
+    def debug(self,vtype,var):
+	try:
+	    if self.stdout_debug: print vtype,var
+	    if self.memory_debug: self.debuglog.append((vtype,var))
+	except:
+	    print traceback.format_exc()
+	
+	
     def processInputBuffer(self):
         try:
             input_data = "".join(self.ibuffer)        
@@ -87,7 +98,10 @@ class BaseChatter(asynchat.async_chat):
                 self.ibuffer = []
                 
             for line in input_lines[:-1]:
-                #print "<<<", line
+		try:
+		    self.debug("(in)<<", line)
+		except:
+		    print traceback.format_exc()
                 self.comm_rlock.acquire()
                 self.process_data(line.decode("utf8"))
                 self.comm_rlock.release()
@@ -132,7 +146,6 @@ class BaseChatter(asynchat.async_chat):
         return r
         
     def _push(self, string):
-        #print ">>>",repr(string)   # DEBUG
         #ret = asynchat.async_chat.push(self,string) 
         try:
             if self.sock.fileno() < 0: 
@@ -144,6 +157,12 @@ class BaseChatter(asynchat.async_chat):
         done = False
         error = False
         errors = 0
+        try:
+	    for line in string.split("\n")[:-1]:
+		self.debug("(out)>>",line)
+	except:
+	    print traceback.format_exc()
+        
         self.obuffer += string
         bytes = 0
         while not done:
