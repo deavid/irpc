@@ -48,23 +48,33 @@ class BaseChatter(asynchat.async_chat):
         self.consecutive_errors = 0
         self.found_terminator = False
         self.error = False
-        
+    
     def loop(self):
         while not self.error:
             try:
-                self.sock.setblocking(0)
+                self.sock.setblocking(1)
             except:
                 self.error = True
                 return False
             data = ""
             try:
-                data = self.sock.recv(1024)
-            except:
-                pass
+                data = self.sock.recv(4096)
+            except socket.error:
+		import sys
+		v, t = sys.exc_info()[1]
+		print v,t
+		if v == 11:
+		    time.sleep(0.1)
+		data = ""
+		
+		
             if len(data):
                 self.ibuffer.append(data)
                 if '\n' in data: self.found_terminator = True
                 if self.found_terminator: self.processInputBuffer()
+	    else:
+		time.sleep(0.01)
+		
 
     def processInputBuffer(self):
         try:
@@ -637,9 +647,10 @@ class BaseLanguageSpec(LanguageSpec):
         execute = CommandList("!","execute", CMD_Execute)
         execute_call = CommandList("call","call", CallFunction)
         execute_help = CommandList("help","help", HelpFunction)
-        execute_help = CommandList("monitor","monitor", MonitorFunction)
+        execute_monitor = CommandList("monitor","monitor", MonitorFunction)
         execute.children.append(execute_call)
         execute.children.append(execute_help)
+        execute.children.append(execute_monitor)
 
         self.commands.append(execute)
 

@@ -127,6 +127,12 @@ class RemoteIRPC:
         self.thread.start()
         self.timeout = 30
         self.monitored_events = {}
+        
+    def exit(self):
+	self.chatter.exit = True
+        self.socket.setblocking(0)
+        self.socket.close()
+	self.thread.join(timeout=0.01)
 
     def call(self, fn, *args, **kwargs): 
         #ret = self.execute("call",local_kwargs={"fn":fn},args = args,kwargs = kwargs)
@@ -236,7 +242,15 @@ def main():
     print sum(remote.call("getItems"))
     
     print "done"
+    remote.exit()
     
 
 if __name__ == "__main__":
+    # Import Psyco if available
+    try:
+        import psyco
+        #psyco.full()
+    except ImportError:
+        pass
+    
     main()

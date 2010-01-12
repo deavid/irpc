@@ -19,6 +19,7 @@ def sigINT(signum, frame):
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 
     def handle(self):
+	self.server.active_requests.append(self)
         self.local_address = self.request.getsockname()
         self.remote_address = self.request.getpeername()
         self.request.setblocking(0)
@@ -26,6 +27,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
         self.chatter = irpcchatter.BaseChatter(sock = self.request, addr = self.remote_address)
         self.chatter.setup(self.server.lang) # Configura y da de alta todo el lenguaje 
         self.chatter.loop()
+	self.server.active_requests.remove(self)
         # print "Ending thread for", self.remote_address  # DEBUG
     
 
@@ -33,7 +35,17 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     allow_reuse_address = True
-    pass
+    active_requests = []
+    def exit(self):
+	for req in self.active_requests:
+	    req.chatter.error = True
+	    req.request.setblocking(0)
+	    req.request.close()
+	time.sleep(0.01)    
+	if hasattr(self,"shutdown"):
+	    self.shutdown()
+	
+    
 
 def startServer(HOST="", PORT=10000):
     server = ThreadedTCPServer((HOST, PORT), ThreadedTCPRequestHandler)
@@ -70,12 +82,16 @@ def main():
     while not exit:
         time.sleep(0.1)
         
-    if hasattr(server,"shutdown"):
-        server.shutdown()
-    
+    server.exit()
     del server
     del thread
     
 
 if __name__ == "__main__":
+    # Import Psyco if available
+    try:
+        import psyco
+        psyco.full()
+    except ImportError:
+        pass
     main()

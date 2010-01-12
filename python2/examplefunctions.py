@@ -4,11 +4,13 @@
 import irpcchatter
 import random
 listItems = []
-
+itera_1 = 0
 @irpcchatter.published
 def addItem(item):
-    global listItems
-    if random.randint(0,120) == 0:
+    global listItems, itera_1
+    itera_1 += 1
+    if itera_1 > 100:
+	itera_1 = 0
         testEvent.signalRaise(item=item)
     listItems.append(item)
     return True
