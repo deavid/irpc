@@ -133,8 +133,20 @@ class RemoteIRPC:
         self.socket.setblocking(0)
         self.socket.close()
 	self.thread.join(timeout=0.01)
-
+	
     def call(self, fn, *args, **kwargs): 
+	return self.execmd("call",{'fn':fn}, *args, **kwargs)
+
+    def call_ev(self, fn, *args, **kwargs): 
+	return self.execmd("call",{'ev':fn}, *args, **kwargs)
+	
+    def help(self, fn, *args, **kwargs): 
+	return self.execmd("help",{'fn':fn}, *args, **kwargs)
+
+    def help_ev(self, fn, *args, **kwargs): 
+	return self.execmd("help",{'ev':fn}, *args, **kwargs)
+
+    def execmd(self, cmd, local_kwargs, *args, **kwargs): 
         #ret = self.execute("call",local_kwargs={"fn":fn},args = args,kwargs = kwargs)
         #print ret.type
         #print ret.value
@@ -143,7 +155,7 @@ class RemoteIRPC:
             getReturnValue = kwargs["getReturnValue"]
             del kwargs["getReturnValue"]
         
-        exe = ExecuteRemoteCommand(self.chatter, "call", local_kwargs={"fn":fn},args = args,kwargs = kwargs)
+        exe = ExecuteRemoteCommand(self.chatter, cmd, local_kwargs=local_kwargs,args = args,kwargs = kwargs)
         exe.start()
         if getReturnValue:
             ret = exe.getReturnValue()
@@ -151,6 +163,7 @@ class RemoteIRPC:
         else:
             return exe
 
+    
     def monitor(self, ev, *args, **kwargs): 
         if ev in self.monitored_events:
             raise NameError("Error: tried to monitor event '%s' twice." % ev)
