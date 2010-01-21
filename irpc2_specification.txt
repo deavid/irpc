@@ -1,0 +1,96 @@
+********** IDENTIFICACION
+#!identify clientName=”generic IRPC client” clientIRPCVersion=”2.0.0”
+#> {serverName:”generic IRPC server”,serverIRPCVersion:”2.0.0”}
+
+La identificación se debe hacer al principio. No se puede llamar dos veces.
+Identifica las máquinas, no sus usuarios. La correcta identificación facilita que
+el servidor y el cliente se adapten mejor al comunicar.
+
+
+********** RSAKEY
+#!rsakey-listkeys size=4
+#> ["59ca28d4","f871f7f7","c94e4083","8f68270a"]
+#!rsakey-download rsakey="59ca28d4"
+#> "\x34........."  
+#!rsakey-testsignature rsakey="59ca28d4" data="9c44c42308ad5f1d613f6acee359c1f1" algorithm="HMAC-SHA256"
+#> { randomKey="9aea2480e3717d104a1a255ce18f4af0", signedData="9e7e16441e39f4acfed1c977b984f9184959c44c42308ad5f1d613f6acee359c1f1534fac2a86ee710ffd130714de51b080c022f3f54d5c272ce87b59ff45ecf" }
+
+Hay que ir con cuidado con las pruebas de firmado, porque si firmamos lo que nos pasan sin más, podremos estar
+firmando cualquier documento sin saberlo. Puede ser usado para un ataque. Por lo tanto, hemos de firmar
+los datos después de deformarlos y hacerlos aleatorios, de un modo que sea impredecible.
+
+********* SHAREDKEY
+#!sharedkey-listkeys size=4
+#> ["59ca28d4","f871f7f7","c94e4083","8f68270a"]
+#!sharedkey-testsignature sharedkey="59ca28d4" data="9c44c42308ad5f1d613f6acee359c1f1" algorithm="HMAC-SHA256"
+#> { randomKey="9aea2480e3717d104a1a255ce18f4af0", signedData="9e7e16441e39f4acfed1c977b984f9184959c44c42308ad5f1d613f6acee359c1f1534fac2a86ee710ffd130714de51b080c022f3f54d5c272ce87b59ff45ecf" }
+
+
+********** AUTENTICACION
+#!authenticate username="guest" method="SharedKey-HMAC-SHA256" key="1ff3ed91"
+Deberemos responder a las consultas de tipo "sharedkey" del servidor hasta que nos devuelva el resultado:
+#> { result: True, errors: [] } 
+
+Quedaríamos autenticados como "guest". Este es el usuario por defecto, y los servidores 
+compatibles con irpc v1 no requieren autenticacion.
+NOTA: Autenticar cierra cualquier BaseChatter que hubiera abierto, perdiendo los datos.
+
+Pueden haber los siguientes métodos:
+ * Trust - creerse que el usuario es quien dice ser. El arg. key no se mira.
+ * Password-Plain - pasar un password en claro por el argumento key (internamente se ejecuta SHA256+Salt para comparar con el fichero)
+ * SharedKey-HMAC-SHA256 - Desafío respuesta contra el password. key es el identificador de clave SharedKey
+ * RSAKey-HMAC-SHA256 - Desafío respuesta contra clave privada. key es el identificador de clave RSAKey
+
+
+********** SESIONES
+#!session-create timeout=600
+#> {sessionID: guest-d49abdbb}
+
+El id de sesión está unido al usuario. Se requiere autentificarse como tal para iniciar una nueva sesión.
+Sólo puede haber una conexión usando una sesión a la vez. El último que entra se queda con la sesión.
+NOTA: Entrar en una sesión nueva cierra cualquier BaseChatter que hubiera abierto, perdiendo los datos.
+
+#!session-restore sessionID="guest-d49abdbb"
+#!session-delete sessionID="guest-d49abdbb"
+
+En la configuración de creación, además de timeout (opcional), se pueden indicar en un 
+futuro otras opciones, como por ejemplo el langSpec (especificación del lenguaje) u otras
+cosas que puedan modificar para una sesión determinada qué programa se carga.
+
+*********** COMPATIBILIDAD IRPC v1
+Por compatibilidad, se inicia implícitamente el BaseChatter a la recepción del primer comando 
+que no es precedido por #.
+Si el servidor no permite con los datos por defecto (usuario guest, autenticacion trust) la creación 
+de un BaseChatter, devuelve el motivo (con #ERROR:) y cierra la conexión.
+
+
+*********** CIFRADO
+El objetivo principal consiste en conseguir una clave común en ambos lados sin llegar a transmitirla en claro.
+
+#!encryption-populatekey method="RSA-send" rsakey="59ca28d4" cipherData="9f4acfed1c977b984f9184959c44c42308ad5f1d613f6acee3"
+> True
+
+#!encryption-populatekey method="SharedKey-recv" rsakey="59ca28d4" size=128
+> { cipherData : "9f4acfed1c977b984f9184959c44c42308ad5f1d613f6acee3" }
+
+
+#!encryption-init method="PBKDF2-AES-128" 
+> True
+Recoge la clave desde el total del populatekey. Ya no se puede cambiar la clave.
+
+#!encryption-test method="HMAC-SHA256" cipherData="9f4acfed1c977b984f9184959c44c42308ad5f1d613f6acee3" result="c977b984f9184959c44c42308ad5f1d613f6ace"
+> True
+Comprueba que estemos cifrando y descifrando correctamente a través de HMAC. Nos devuelve True como que está correcto.
+Es conveniente esto para evitar iniciar un cifrado que va a salir mal, ya que una vez en modo cifrado, no se comprueba nada. Se estaría asumiendo mal.
+
+#!encryption-start 
+> True
+
+Una vez se lance start, la comunicación se asume completamente cifrada. Hay que vigilar de mantener y acumular
+correctamente el estado del cifrador entre los distintos mensajes. Del mismo modo, a los mensajes hay que ponerles
+un padding para que sean transmitidos al instante. De lo contrario no habrá salida.
+
+#!encryption-stop
+> True
+
+Este comando desactivaría el cifrado.
