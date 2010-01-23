@@ -1,3 +1,39 @@
+Listado de los distintos aspectos que soportará la versión 2 de IRPC:
+
+* -- BaseLanguageSpec --
+* 1. Ejecuciones de comando
+* 1.1. Llamadas a función/eventos
+* 1.2. Obtención de ayuda y documentación
+* 1.3. Monitorización de señales/eventos
+* 2. Retorno de valor
+* 2.1. Respuestas y retornos de valor
+* 3. Procesos
+* 4. Transmisión de ficheros
+
+
+* -- ServerLanguageSpec --
+* 1. Identificación
+* 2. Llaves:
+* 2.1. RSA - RSA assymetric crypto
+* 2.2. EC  - Elliptic Curve assymetric crypto
+* 2.3. PSK - Pre-shared Key
+* 3. Autenticacion
+* 4. Sesiones
+* 5. Cifrado
+
+* -- APENDICES --
+* 1. Administración de usuarios y contraseñas
+* 2. Compatibilidad con IRPCv1
+* 3. Estructura del código
+
+
+
+########### -- BaseLanguageSpec -- ###########
+
+
+########### -- ServerLanguageSpec -- ###########
+
+
 ********** IDENTIFICACION
 #!identify clientName=”generic IRPC client” clientIRPCVersion=”2.0.0”
 #> {serverName:”generic IRPC server”,serverIRPCVersion:”2.0.0”}
@@ -57,12 +93,6 @@ En la configuración de creación, además de timeout (opcional), se pueden indi
 futuro otras opciones, como por ejemplo el langSpec (especificación del lenguaje) u otras
 cosas que puedan modificar para una sesión determinada qué programa se carga.
 
-*********** COMPATIBILIDAD IRPC v1
-Por compatibilidad, se inicia implícitamente el BaseChatter a la recepción del primer comando 
-que no es precedido por #.
-Si el servidor no permite con los datos por defecto (usuario guest, autenticacion trust) la creación 
-de un BaseChatter, devuelve el motivo (con #ERROR:) y cierra la conexión.
-
 
 *********** CIFRADO
 El objetivo principal consiste en conseguir una clave común en ambos lados sin llegar a transmitirla en claro.
@@ -94,3 +124,100 @@ un padding para que sean transmitidos al instante. De lo contrario no habrá sal
 > True
 
 Este comando desactivaría el cifrado.
+
+
+
+
+########### -- Apendices -- ###########
+
+*********** COMPATIBILIDAD IRPC v1
+Por compatibilidad, se inicia implícitamente el BaseChatter a la recepción del primer comando 
+que no es precedido por #.
+Si el servidor no permite con los datos por defecto (usuario guest, autenticacion trust) la creación 
+de un BaseChatter, devuelve el motivo (con #ERROR:) y cierra la conexión.
+
+
+
+*********** Estructura del código ***********
+
+El código para el funcionamiento de IRPC usando Python2, comienza en el fichero
+irpcchatter.py, que es el encargado de procesar directamente la entrada desde
+el socket. A partir de esta entrada, se deriva a través de una serie de clases
+enlazadas que definen finalmente el lenguaje. Por lo tanto, no existe un núcleo
+que defina todo el comportamiento, en realidad se hace a base de extensiones
+de la clase original. tcpclient.py y tcpserver.py agregan las partes que faltan
+para conseguir un cliente completo y un servidor completo.
+
+irpcchatter.py usa una serie de librerías que listamos a continuación:
+  * asynchat, asyncore. Son librerías que teóricamente son útiles para esta
+clase de protocolos. Pero no son los más adecuados, así que después de haberlas
+usado, ahora nos queremos deshacer de ellas para usar directamente los sockets.
+  * socket. Librería para el uso de la red. IRPC es lo
+suficientemente simple y definido como para poder trabajar directamente a nivel
+de socket.
+  * traceback. Librería para poder mostrar las llamadas que han habido en un
+error, así como guardarlas en un texto. Es útil para poder enviar los errores
+al otro extremo de la conexión.
+  * threading. Librería para usar threads. En este fichero sólo se usa para
+trabajar con bloqueos reentrantes y eventos, es decir, no hacemos uso de
+threads, pero está preparada para que se pueda usar con éstos.
+  * re. Librería para el uso de expresiones regulares. Útil para detectar
+correctamente los formatos de las tramas.
+  * pydoc. Librería para extraer la ayuda de Python de un objeto. Se usa para
+poder enviar esa ayuda a través de la red.
+  * time. Librería para manejar objetos de hora. Se usa principalmente para
+pausar el hilo con la función time.sleep(s) durante cortos períodos mientras se
+completan las operaciones.
+
+  * cjson. Librería externa (python-cjson) para la decodificacion y
+codificación de cadenas JSON. JSON es una especificación de serialización de
+variables según el estándar JavaScript. Se usa para codificar los valores de
+entrada y salida.
+
+Toda la funcionalidad la realiza la clase BaseChatter a través de las clases
+que tenga enlazadas. BaseChatter tiene un socket, un buffer de entrada y un
+buffer de salida. La función principal es self.loop(), que se trata de un bucle
+infinito de recepción de datos. Cada vez que detecta un final de mensaje ('\n')
+inicia el proceso del buffer de entrada self.processInputBuffer().
+
+La función self.push() realiza el envío de datos (en crudo) al otro extremo.
+Para ello acumula los datos en su buffer de salida y controla qué datos se han
+enviado y cuales no.
+
+El proceso del buffer de entrada se realiza mediante un sencillo algoritmo de
+corte de líneas, que envía a procesar todas las líneas, excepto la última, que
+está siempre por completar. Esta línea es devuelta al buffer para que sea
+completada más tarde. Se lanza self.process_data(data) que procesará cada línea
+entregada a través del procesador del lenguaje.
+
+El lenguaje es una de las piezas claves en irpcchatter. El lenguaje (class
+LanguageProcessor) es el que realmente interpreta lo que entra por el
+protocolo. Está hecho de modo que con sólo cambiar esta clase, cambiaría todo
+el lenguaje usado. Además esta clase es configurable y ampliable. Internamente
+únicamente mantiene una lista de comandos (que hay que introducir/configurar) a
+los que puede responder, cada comando con su carácter y su correspondiente
+instance-callback. El procesador del lenguaje es una función que toma como
+entrada la línea a procesar y actúa en consecuencia, pudiendo devolver datos al
+cliente internamente.
+
+Pero configurar internamente el lenguaje a servir cada vez que se inicia una
+conexión es casi imposible, más aún en servidores tcp/ip multihilo. Para
+facilitar el trabajo existe la clase BaseLanguageSpec, que deriva de
+LanguageSpec. Estas clases lo que hacen es incluír una plantilla de
+configuración de lenguaje, de modo que al ser asociada la plantilla al
+BaseChatter tenemos que cuando se genera la conexión real, el lenguaje queda
+correctamente configurado.
+
+Las librerías tcpclient y tcpserver sólo nos agregan funcionalidades más
+simplificadas para un cliente y un servidor, funcionalidades más apropiadas.
+
+Por ejemplo, en tcpclient tenemos una clase encargada de la gestión de las
+llamadas de comando remoto "!", de forma que gestiona correctamente el envío,
+la espera, y la decodificación del mensaje. Todo esto usando funciones y sin
+tener que preocuparse en cómo funciona el protocolo. Trae también una clase
+RemoteIRPC que gestiona todo de forma muy sencilla, la conexión, llamadas,
+eventos, etc.
+Por otro lado tenemos tcpserver, que no incorpora facilidades de cliente, en su
+lugar, tiene una implementación de servidor con hilos que puede ser usada
+fácilmente por cualquiera.
+
