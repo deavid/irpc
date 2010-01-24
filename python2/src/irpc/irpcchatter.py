@@ -1,7 +1,6 @@
 #!/usr/bin/python
 # encoding: UTF-8
 
-import asynchat, asyncore
 import socket
 import traceback
 import threading
@@ -27,26 +26,18 @@ class BaseClass:
         self.family = family 
         self.type = type
         self.name = name
-        
 
-class BaseChatter(asynchat.async_chat):
+class BaseChatter():
     stdout_debug = False
     memory_debug = False
     
     def __init__(self,sock, addr):
-        try:
-            asynchat.async_chat.__init__(self, sock = sock) 
-        except:
-            asynchat.async_chat.__init__(self, conn = sock) # python 2.5
         self.debuglog = []
         
         self.sock = sock
         self.ibuffer = []
         self.obuffer = ""
-        self.set_terminator("\n")
         self.addr = addr
-        #self.fifo = asynchat.fifo()
-        #self.push_with_producer(self.fifo)
         self.language = None
         self.comm_rlock = threading.RLock()
         self.consecutive_errors = 0
@@ -66,9 +57,7 @@ class BaseChatter(asynchat.async_chat):
             except socket.error:
 		import sys
 		v, t = sys.exc_info()[1]
-		print v,t
-		if v == 11:
-		    time.sleep(0.1)
+		print "basechatter.loop:",v,t
 		data = ""
 		
 		
@@ -102,33 +91,19 @@ class BaseChatter(asynchat.async_chat):
 		    self.debug("(in)<<", line)
 		except:
 		    print traceback.format_exc()
-                self.comm_rlock.acquire()
+                #self.comm_rlock.acquire()
                 self.process_data(line.decode("utf8"))
-                self.comm_rlock.release()
+                #self.comm_rlock.release()
         except:
             print traceback.format_exc()
             
 
-    
-    def _loop(self):
-        n = None
-        try:
-            n = self.sock.fileno()
-        except:
-            n = None
-        if n is None: return False
-        try:
-            asyncore.loop(map = {n : self},timeout = 0.01)
-        #except asyncore.select.error:
-        #    pass
-        except:
-            print u"Error inesperado en el bucle de recepcion"
-            print traceback.format_exc()
-            
     def push(self, string):
         r = False
         if self.error: return False
-        self.comm_rlock.acquire()
+        if not self.comm_rlock.acquire(False):
+	    self.obuffer += string
+	    return False
         try:
             r = self._push(string)
         except:
@@ -171,6 +146,8 @@ class BaseChatter(asynchat.async_chat):
                 if bytes == 0: break
                 self.obuffer = self.obuffer[bytes:] 
                 if len(self.obuffer)==0 : done = True
+                error = False
+                errors = 0
             except socket.error , e:
                 
                 done = False
@@ -183,6 +160,11 @@ class BaseChatter(asynchat.async_chat):
                     self.sock.close()
                     return False
                     break
+		if e[0] == 32: # Broken Pipe
+                    self.sock.close()
+                    return False
+                    break
+		    
                 time.sleep(0.02)
             
             
@@ -193,47 +175,19 @@ class BaseChatter(asynchat.async_chat):
         self.language = LanguageProcessor(chatter = self)
         for cmd in languageSpec.commands:
             self.language.addCmd(cmd.key,cmd.name,cmd.classtype,cmd.children)
-        #self.language.addType("!","execute",CMD_Execute)
-        # self.cmds = self.language.cmds
         languageSpec.setup(self)
-        """ 
-            permite accdeder a los comandos del siguiente modo:
-            
-            self.language.cmds.exec
-            self.language.cmds.exec.cmds.call
-            
-        """
-        
-
-    def collect_incoming_data(self,data):
-        try:
-            #print repr(data)
-            self.ibuffer.append(data)
-        except:
-            print traceback.format_exc()
-
-    def found_terminator(self):
-        try:
-            input_data = "".join(self.ibuffer)        
-            self.ibuffer = []
-            self.comm_rlock.acquire()
-            self.process_data(input_data.decode("utf8"))
-            self.comm_rlock.release()
-        except:
-            print traceback.format_exc()
 
     def process_data(self,data): # 15s
         if self.language:
             lines = data.split("\n")
             for line in lines:
                 #print "<<<",repr(line)  # DEBUG
+                #threading.Thread(target = self.language.process, args = [line]).start()
                 self.language.process(line)
             
-            
-"""class ServerChatter(BaseChatter):
-    def __init__(self,sock,addr):
-        BaseChatter.__init__(self, sock, addr)
-"""        
+
+
+
         
 
 class LanguageProcessor:

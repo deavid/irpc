@@ -75,7 +75,7 @@ def import_examplefuncitons():
 def main():
     global exit
     import_examplefuncitons()
-    irpcchatter.BaseChatter.stdout_debug = True
+    #irpcchatter.BaseChatter.stdout_debug = True
     exit = False
     signal.signal(signal.SIGINT, sigINT)
     server, thread = startServer(PORT=10123)
