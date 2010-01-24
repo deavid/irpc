@@ -2,8 +2,8 @@
 
 # Form implementation generated from reading ui file 'navigator.ui'
 #
-# Created: Tue Jan 12 22:59:14 2010
-#      by: PyQt4 UI code generator 4.6
+# Created: Sat Jan 23 11:53:18 2010
+#      by: PyQt4 UI code generator 4.4.4
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -75,7 +75,7 @@ class Ui_navigator(object):
         self.spnPort.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
         self.spnPort.setMinimum(1)
         self.spnPort.setMaximum(655535)
-        self.spnPort.setProperty("value", 10123)
+        self.spnPort.setProperty("value", QtCore.QVariant(10123))
         self.spnPort.setObjectName("spnPort")
         self.horizontalLayout_3.addWidget(self.spnPort)
         self.verticalLayout_2.addLayout(self.horizontalLayout_3)
@@ -105,6 +105,7 @@ class Ui_navigator(object):
         QtGui.QListWidgetItem(self.listWidget)
         QtGui.QListWidgetItem(self.listWidget)
         self.verticalLayout.addWidget(self.listWidget)
+        self.toolBoxPage2.setSortingEnabled(__sortingEnabled)
         self.toolBox.addItem(self.toolBoxPage2, "")
         self.page = QtGui.QWidget()
         self.page.setObjectName("page")

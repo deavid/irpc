@@ -1,14 +1,17 @@
 Listado de los distintos aspectos que soportará la versión 2 de IRPC:
 
+* -- BaseChatter --
+* 1. Tramas
+
 * -- BaseLanguageSpec --
 * 1. Ejecuciones de comando
 * 1.1. Llamadas a función/eventos
 * 1.2. Obtención de ayuda y documentación
 * 1.3. Monitorización de señales/eventos
 * 2. Retorno de valor
-* 2.1. Respuestas y retornos de valor
 * 3. Procesos
 * 4. Transmisión de ficheros
+* 5. Sincronizacion de variables y colas
 
 
 * -- ServerLanguageSpec --
@@ -28,7 +31,94 @@ Listado de los distintos aspectos que soportará la versión 2 de IRPC:
 
 
 
+########### -- BaseChatter -- ###########
+
+********** 1. Tramas 
+La trama es un stream tcpip, separado por bajada de linea \n.
+Cada trama se divide por campos, separados por caracter tabulador \t.
+Las tramas no traen checksum, y los datos contenidos en los campos 
+deberían estar siempre con codificacion de 7-bits ascii. (los acentos hay 
+que escaparlos)
+
+Todas las tramas tienen como objeto ser lo más concisas posibles.
+
+
+
+
 ########### -- BaseLanguageSpec -- ###########
+Los lenguajes para irpc se inician a partir del primer carácter.
+El primer caracter (tedriamos unas 90 opciones para definir) es
+el que define por qué pasarela de lenguaje tiene que usar.
+
+BaseLanguageSpec es una plantilla para configurar basechatter según la
+especificacion de irpcv1.
+
+********** 1. Ejecuciones de comando
+Los comandos son lanzados a partir del caracter admiración "!".
+Las ejecuciones soportan llamar a un comando con un nombre, identificar
+la llamada con un id, pase de argumentos por nombre y por orden. 
+Además soporta dos tipos de argumentos, los directos y los parseados.
+Los argumentos directos tienen como objeto configurar el comando que se
+está lanzando. No tienen ningún tipo de parseo, por lo que básicamente 
+aceptan textos.
+Los argumentos parseados, aceptan casi cualquier tipo de variable,
+exportadas en json (json es un estandar de serializacion de javascript).
+Los argumentos directos se separan por dos puntos ":" y los parseados por "=".
+Una ejecucion de comando *implica* una respuesta. (ver 2. retorno de valor)
+
+********** 1.1. Llamadas a función/eventos
+Existe el comando !call que básicamente provee de la funcionalidad de llamar a 
+funciones arbritrarias (siempre de forma controlada por el server), o eventos.
+
+Básicamente, para funciones:
+!call	fn:getFunctionList	arg1="val1"
+
+Para eventos:
+!call	fn:testEvent	item=54
+
+Una vez se provoca la llamada, el servidor devuelve como respuesta la respuesta
+de la función ejecutada.
+
+********** 1.2. Obtención de ayuda y documentación
+El comando help, usado exactamente igual que el comando call, devuelve la ayuda 
+a la función o al evento. Con su documentación.
+
+********** 1.3. Monitorización de señales/eventos
+El comando monitor, permite seleccionar un evento para que nos notifique el lanzamiento.
+Devuelve true si se agrega correctamente a la lista de eventos monitorizados.
+TODO: falta un método para listar los eventos monitorizados, y otro para quitarlos.
+TODO: las respuestas son fuera del estandar. deberian seguir por un metodo 
+de variable sincrona
+
+********** 2. Retorno de valor
+Los retornos de valor se inician con el caracter mayor-que ">", tienen un id, tipo y un valor. El id sirve para identificar
+el retorno con la llamada correspondiente.
+(Problema: los avisos de evento por monitor se salen de la norma.)
+ 
+Por ejemplo:
+>@x12	tipo	"valortxt"
+
+
+
+
+********** 3. Procesos
+Por procesos, se entiende, procesos operativos. Por ejemplo algo que requiera una
+consecucion de llamadas, una negociación. Como ocurre con la autenticación. 
+
+********** 4. Transmisión de ficheros
+Sincronizacion y transferencia asincrona, no bloqueante, con 
+un tamaño de paquete pequeño (1024). 
+Que permita la descarga parcial. Que compruebe los ficheros (firmas)
+
+********** 5. Sincronizacion de variables y colas
+Deberia ser posible sincronizar variables pequeñas y colas.
+Variables pequeñas, entendemos variables simples: 
+int, float, bool, string(64), tuplas(2..6)
+Colas / queues, donde podamos por ejemplo acumular las veces que se 
+han llamado los distintos eventos. 
+Vectores (listas)
+diccionarios
+sets únicos  / conjuntos
 
 
 ########### -- ServerLanguageSpec -- ###########
@@ -54,7 +144,11 @@ el servidor y el cliente se adapten mejor al comunicar.
 Hay que ir con cuidado con las pruebas de firmado, porque si firmamos lo que nos pasan sin más, podremos estar
 firmando cualquier documento sin saberlo. Puede ser usado para un ataque. Por lo tanto, hemos de firmar
 los datos después de deformarlos y hacerlos aleatorios, de un modo que sea impredecible.
-
+Hay que vigilar que  no sea posible un ataque de man-in-the-middle, es decir, que no se pueda poner alguien 
+en medio, simulando ser otro, y cuando le solicitan una firma, que la solicite él mismo al siguiente punto.
+De este modo, podrían autenticarse, y como sólo se autentican algunos mensajes, podría además de espiarlo 
+todo, podría añadir nuevas tramas y serian tratadas como autenticadas.
+ 
 ********* SHAREDKEY
 #!sharedkey-listkeys size=4
 #> ["59ca28d4","f871f7f7","c94e4083","8f68270a"]
@@ -77,6 +171,7 @@ Pueden haber los siguientes métodos:
  * SharedKey-HMAC-SHA256 - Desafío respuesta contra el password. key es el identificador de clave SharedKey
  * RSAKey-HMAC-SHA256 - Desafío respuesta contra clave privada. key es el identificador de clave RSAKey
 
+TODO: La autenticacion puede tambien tener que ver con: comandos, retornos, ficheros. Con esto se protegería que inserten tramas que parezcan estar autenticadas.
 
 ********** SESIONES
 #!session-create timeout=600
@@ -111,22 +206,30 @@ Recoge la clave desde el total del populatekey. Ya no se puede cambiar la clave.
 #!encryption-test method="HMAC-SHA256" cipherData="9f4acfed1c977b984f9184959c44c42308ad5f1d613f6acee3" result="c977b984f9184959c44c42308ad5f1d613f6ace"
 > True
 Comprueba que estemos cifrando y descifrando correctamente a través de HMAC. Nos devuelve True como que está correcto.
-Es conveniente esto para evitar iniciar un cifrado que va a salir mal, ya que una vez en modo cifrado, no se comprueba nada. Se estaría asumiendo mal.
+Es conveniente esto para evitar iniciar un cifrado que va a salir mal, ya que 
+una vez en modo cifrado, no se comprueba nada. Se estaría asumiendo mal.
 
 #!encryption-start 
 > True
 
-Una vez se lance start, la comunicación se asume completamente cifrada. Hay que vigilar de mantener y acumular
-correctamente el estado del cifrador entre los distintos mensajes. Del mismo modo, a los mensajes hay que ponerles
-un padding para que sean transmitidos al instante. De lo contrario no habrá salida.
+Una vez se lance start, la comunicación se asume completamente cifrada. Hay que 
+vigilar de mantener y acumular correctamente el estado del cifrador entre los 
+distintos mensajes. Del mismo modo, a los mensajes hay que ponerles un padding 
+para que sean transmitidos al instante. De lo contrario no habrá salida.
 
 #!encryption-stop
 > True
 
 Este comando desactivaría el cifrado.
 
-
-
+Cifrado-vs-autenticado: cuando se cifra correctamente, se podría suponer que 
+el emisor es quien dice ser, pero el cifrado siempre es más vulnerable que la
+autenticación por firma. El problema de la autenticación es que recarga demasiado
+el tamaño de una trama.
+Una posible idea es usar el algoritmo adler32 (similar a crc32) o crc32, crc16, para
+reducir el tamaño de una firma sha256. Pero siempre se tiene que generar primero 
+la firma completa sha256. luego se puede reducir. crc16 y similares no son 
+criptográficamente seguras, pero sha2 sí lo es y puede ser seguro usar crc sobre sha.
 
 ########### -- Apendices -- ###########
 
@@ -220,4 +323,34 @@ eventos, etc.
 Por otro lado tenemos tcpserver, que no incorpora facilidades de cliente, en su
 lugar, tiene una implementación de servidor con hilos que puede ser usada
 fácilmente por cualquiera.
+
+
+*********** Consideraciones de seguridad
+
+ha de tenerse en cuenta que irpc no es un protocolo que pueda garantizar una 
+seguridad absoluta, aunque tiene una implementacion lo más buena posible, no 
+está extenta de posibles ataques. En este apartado listamos los métodos que 
+podemos usar para mejorar la seguridad, así como los ataques posibles.
+
+* sobre seguridad absoluta.
+No existe sistema irrompible, aunque se puede conseguir algo bastante efectivo.
+La mayor seguridad, sólo se garantiza si:
+* Conocemos el servidor con anterioridad y sólo nos conectamos si es el verdadero.
+* Conocemos el cliente con anterioridad y no permitimos otros clientes.
+* las claves usadas por ambas partes no están comprometidas.
+* las tramas van firmadas individualmente. desconectando si nos encontramos con
+  mas de N fallos.
+* ciframos las tramas con cifrado simétrico.
+
+Sobre el cifrado simétrica existen una serie de consideraciones:
+* evitar el reinicio del cifrado. El cifrado tiene que ser siempre acumulativo.
+* prepopular el cifrador con datos aleatorios. esto evita ataques por diccionario.
+* evitar cifrados con tamaños de bloque pequeño. A menor tamaño de bloque, mayor
+cantidad de datos aleatorios de inicialización. hay que intentar por todos los 
+medios que el estado del cifrador sea impredecible.
+* no usar nunca las mismas claves a la práctica. siempre usar datos aleatorios como
+clave. Con una clave conocida, sólo cifrar datos aleatorios.
+* considerar la posibilidad del uso de claves publicas generadas al vuelo, aun 
+  incluso por encima de las ya existentes en disco (para agregar seguridad adicional)
+
 

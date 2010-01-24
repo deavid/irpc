@@ -2,8 +2,8 @@
 
 # Form implementation generated from reading ui file 'conntest.ui'
 #
-# Created: Tue Jan 12 22:59:13 2010
-#      by: PyQt4 UI code generator 4.6
+# Created: Sat Jan 23 11:53:17 2010
+#      by: PyQt4 UI code generator 4.4.4
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -27,7 +27,7 @@ class Ui_conntest(object):
         self.spnPort.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
         self.spnPort.setMinimum(1)
         self.spnPort.setMaximum(655535)
-        self.spnPort.setProperty("value", 10123)
+        self.spnPort.setProperty("value", QtCore.QVariant(10123))
         self.spnPort.setObjectName("spnPort")
         self.horizontalLayout_3.addWidget(self.spnPort)
         self.btnConnect = QtGui.QPushButton(conntest)
@@ -72,22 +72,22 @@ class Ui_conntest(object):
         self.horizontalLayout.setObjectName("horizontalLayout")
         self.cmbCommand = QtGui.QComboBox(self.tab_2)
         self.cmbCommand.setObjectName("cmbCommand")
-        self.cmbCommand.addItem("")
-        self.cmbCommand.addItem("")
-        self.cmbCommand.addItem("")
+        self.cmbCommand.addItem(QtCore.QString())
+        self.cmbCommand.addItem(QtCore.QString())
+        self.cmbCommand.addItem(QtCore.QString())
         self.horizontalLayout.addWidget(self.cmbCommand)
         self.spnID = QtGui.QSpinBox(self.tab_2)
         self.spnID.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
         self.spnID.setMinimum(100)
         self.spnID.setMaximum(999)
-        self.spnID.setProperty("value", 100)
+        self.spnID.setProperty("value", QtCore.QVariant(100))
         self.spnID.setObjectName("spnID")
         self.horizontalLayout.addWidget(self.spnID)
         self.cmbObject = QtGui.QComboBox(self.tab_2)
         self.cmbObject.setObjectName("cmbObject")
-        self.cmbObject.addItem("")
-        self.cmbObject.addItem("")
-        self.cmbObject.addItem("")
+        self.cmbObject.addItem(QtCore.QString())
+        self.cmbObject.addItem(QtCore.QString())
+        self.cmbObject.addItem(QtCore.QString())
         self.horizontalLayout.addWidget(self.cmbObject)
         self.txtArg1 = QtGui.QLineEdit(self.tab_2)
         self.txtArg1.setObjectName("txtArg1")
