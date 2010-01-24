@@ -354,3 +354,47 @@ clave. Con una clave conocida, sólo cifrar datos aleatorios.
   incluso por encima de las ya existentes en disco (para agregar seguridad adicional)
 
 
+
+**** Protocolo de firma y cifrado:
+
+Mensaje en claro:
+!call@x3C        fn:addItem      item=976
+Mensaje firmado:
+$
+
+**** Sistema de usuarios y grupos.
+
+Los usuarios se pueden organizar de forma jerárquica, de modo que un usuario lo podamos
+usar en realidad como un permiso. 
+Por ejemplo:
+
+[Superivsor]
+
+[Admin]
+
+[Jwi]
+groups=Admin Supervisor
+
+Los usuarios pueden tener datos personales asociados, así como una configuración de qué
+métodos de autenticacion pueden usar.
+
+[Dwi]
+groups=Supervisor
+auth-password=("sha224+salt","^~)C","cb624cd7ef7a9c49e79c944a6a54b9b4ee4afa338a8f6e821a657997")
+auth-psk="ZZILO1lDlVwJZAkSuvJRnI3YVs87snXlUOP1J8b6pilahnTu0lkMvhpFvKpK4NuYf+ZDM7ipyDLnC5whJPvNbw=="
+auth-rsa=dwirsa_pub.pem
+auth-ec=dwiec_pub.pem
+
+Para obtener una PreSharedKey de calidad, una opción es el siguiente código:
+b64encode(os.urandom(64))
+O para más seguridad:
+b64encode(hashlib.sha512(os.urandom(512)))
+O bien:
+b64encode(hmac.new(os.urandom(512),os.urandom(2048),hashlib.sha512).digest())
+
+Todos los que se introduzcan, funcionan a la vez.
+
+Para los usos de esta aplicación, una clave con 72 bits de entropía debería ser más que suficiente:
+b64encode(hashlib.sha224(os.urandom(1024)).digest()[:9]) => '0VBPxOIgThRq'
+(Incluso una clave de 24 bits como 'iG9a' puede servir si no se esperan ataques)
+
