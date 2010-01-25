@@ -103,7 +103,7 @@ class ExecuteRemoteCommand:
             return answer.value
         
         if answer.type == "Exception":
-            raise NameError(answer.value)
+            raise NameError("*** SERVER EXCEPTION FOLLOWS ***\n" + answer.value + "\n*** END OF SERVER EXCEPTION ***\n")
             
 
 

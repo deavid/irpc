@@ -33,7 +33,10 @@ class BaseChatter():
     
     def __init__(self,sock, addr):
         self.debuglog = []
-        
+
+	self.securityPerms = set([])
+	self.username = "guest"
+	
         self.sock = sock
         self.ibuffer = []
         self.obuffer = ""
@@ -339,11 +342,11 @@ class CMD_Execute:
         #}
         self.registered_functions = {
         }    
-        self.registerFn(self.getFunctionList)
+        #self.registerFn(self.getFunctionList)
 
         self.registered_events = {
         }    
-        self.registerFn(self.getEventList)
+        #self.registerFn(self.getEventList)
 
     def registerFn(self,fn, name = None):
         if not name: name = fn.__name__
@@ -353,11 +356,11 @@ class CMD_Execute:
         name = event.name
         self.registered_events[name] = event
         
-    def getFunctionList(self):
-        return list(self.registered_functions.keys())
+    """    def getFunctionList(self, _irpcchatter = None, _calldata = None):
+	    return list(self.registered_functions.keys())
 
-    def getEventList(self):
-        return list(self.registered_events.keys())
+	def getEventList(self, _irpcchatter = None, _calldata = None):
+	    return list(self.registered_events.keys())"""
 
     def addCmd(self, key, name, classtype, children):
         class_instance = classtype(parent = self)
@@ -397,6 +400,7 @@ class CMD_Execute:
     
     def _process(self, command):
         # An execute command is separated using tabs:
+        calldata = {}
         cmdline = command.split("\t")
         
         # the 1st param is the command name
@@ -409,7 +413,7 @@ class CMD_Execute:
                 idnum = self.generateID()
 
         ret = ProcessReturn(id = idnum)
-
+	calldata['idnum'] = idnum
         # extra params are in the form: name = value
         args1 = []
         args2 = []
@@ -455,6 +459,8 @@ class CMD_Execute:
             return ret
             
         obj = self.registered_execCommands[cmdname]
+        kwargs2['_irpcchatter'] = self.chatter
+        kwargs2['_calldata'] = calldata
         try:
             obj.execute(ret,cmdname,args1, kwargs1,*args2,**kwargs2)
         except:
@@ -538,7 +544,9 @@ class BaseExecFunction:
     def setup(self):
         pass
     
-    def execute(self,ret,cmdname, far_args, far_kwargs, fn = None, ev = None): 
+    def execute(self,ret,cmdname, far_args, far_kwargs, fn = None, ev = None, _irpcchatter = None, _calldata = None): 
+	far_kwargs['_irpcchatter'] = _irpcchatter 
+	far_kwargs['_calldata'] = _calldata 
         if fn:
             if fn not in self.parent.registered_functions:
                 ret.error = u"%s is not a registered function!" % fn
@@ -583,7 +591,11 @@ class HelpFunction(BaseExecFunction):
         self.help = pydoc.TextDoc()
 
     def callFn(self, funct, args, kwargs,ret):
-        return pydoc.plain(self.help.docroutine(funct))
+	# TODO: Take a look into "inspect" python module (better precision for publishing help)
+	if hasattr(funct,"fun"):
+	    return pydoc.plain(self.help.docroutine(funct.fun))
+        else:
+	    return pydoc.plain(self.help.docroutine(funct))
 
     def callEv(self, event, args, kwargs,ret):
         return event.getSignalSignature()
@@ -626,9 +638,18 @@ class BaseLanguageSpec(LanguageSpec):
         execute.children.append(execute_monitor)
 
         self.commands.append(execute)
-
         answer = CommandList(">","answer", CMD_Answer)
         self.commands.append(answer)
+	"""
+	    later, you'll have this struct inside the chatter:
+	    
+	    chatter.language.cmds.execute
+	    (...).execute.call
+	    (...).execute.help
+	    (...).execute.monitor
+	    (...).answer
+	    
+	"""
         
     def setup(self, chatter):
         global publishedFunctions
@@ -640,18 +661,116 @@ class BaseLanguageSpec(LanguageSpec):
         for event in publishedEvents:
             chatter.language.cmds.execute.registerEvent(event)
     
+
 # ----- Decorators -------
-def published(fn):
-    global publishedFunctions
-    publishedFunctions.append(fn)
-    return fn
+class curry:
+    def __init__(self, fun, *args, **kwargs):
+        self.fun = fun
+        self.args = args[:]
+        self.kwargs = kwargs.copy()
+
+    def __call__(self, *args, **kwargs):
+        if kwargs and self.kwargs:
+            kw = self.kwargs.copy()
+            kw.update(kwargs)
+        else:
+            kw = kwargs or self.kwargs
+
+        return self.fun(*(self.args + args), **kw)
+
+class publishedFn:
+    def __init__(self, fun, reqPerms = [], chatter = False, callData = False, curry_args = [], curry_kwargs = {}):
+        self.fun = fun
+        self.reqPerms = set(reqPerms)
+        self.wants_chatter = chatter
+        self.wants_callData = callData
+        self.__name__ = fun.__name__
+        self.curry_args = curry_args[:]
+        self.curry_kwargs = curry_kwargs.copy()
+
+    def test(self, chatter, calldata):
+	if len(self.reqPerms):
+	    if chatter is None: raise NameError, "This method call requires _irpcchatter"
+	    remaining = self.reqPerms - set(chatter.securityPerms)
+	    if len(remaining): return False
+	    
+	return True
+    
+    def __call__(self, *args, **kwargs):
+	calldata = None
+	chatter = None
+
+	if '_irpcchatter' in kwargs: 
+	    chatter = kwargs['_irpcchatter']
+	    if not self.wants_chatter: del kwargs['_irpcchatter']
+	else:
+	    if self.wants_chatter: raise NameError, "This method call requires _irpcchatter"
+	
+	if '_calldata' in kwargs:
+	    calldata = kwargs['_calldata']
+	    if not self.wants_callData: del kwargs['_calldata']
+	else:
+	    if self.wants_callData: raise NameError, "This method call requires _calldata"
+	    
+	if not self.test(chatter, calldata):
+	    raise NameError, "The current user cannot execute this call!"
+	    
+        if kwargs and self.curry_kwargs:
+            kw = kwargs.copy()
+            kw.update(self.curry_kwargs)
+        else:
+            kw = kwargs or self.curry_kwargs
+	ar = []
+	ar+= self.curry_args
+	ar+= args
+	#print self.fun.__name__ , ar, kw
+    
+	ret = self.fun(*ar, **kw)
+        return ret
+        
+	#return self.fun(*args,**kwargs)
+
+
+class securityPerms:
+    logged = 10
+    # changeown -- 100
+    changeownPassword = 101
+    
+    # Admin -- 1000
+    canAdminUsers = 1001
+    
+    # user-defined-security params -- 10000
+    
+# ----- Decorators -------
+def published(**kwargs):
+    def decorator(f):
+	global publishedFunctions
+	pF = publishedFn(f,**kwargs)
+	publishedFunctions.append(pF)
+	return f
+    return decorator
 
 
 # ----------------------------
 
+@published(chatter = True)
+def getFunctionList(_irpcchatter):
+    registered_functions = _irpcchatter.language.cmds.execute.registered_functions
+    return list(registered_functions.keys())
+
+
+@published(chatter = True)
+def login(username, _irpcchatter):
+    _irpcchatter.username = username
+    return True
+
+@published(chatter = True)
+def whoami(_irpcchatter):
+    return _irpcchatter.username 
+
 def main():
 
-    @published
+    @published()
     def testFunction(x = None):
         u"A test to try the @published decorator. It returns repr(x)"
         return u"testValue " + repr(x)
