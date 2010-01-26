@@ -12,7 +12,10 @@ Listado de los distintos aspectos que soportará la versión 2 de IRPC:
 * 3. Procesos
 * 4. Transmisión de ficheros
 * 5. Sincronizacion de variables y colas
-
+* 6. Modulos 
+* 6.1. Organizacion de las funciones en clases (sys.login)
+* 6.2. Carga dinámica de módulos externos (configurado en security.shelve)
+* 6.3. Publicar módulos a través de red (de puentes)
 
 * -- ServerLanguageSpec --
 * 1. Identificación

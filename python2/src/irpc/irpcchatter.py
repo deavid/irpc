@@ -5,14 +5,32 @@ import socket
 import traceback
 import threading
 
-import re
+import re, os
 import pydoc
 import time 
 
 import cjson
+import hashlib 
+
+from base64 import b64encode, b64decode
 
 publishedFunctions = []
 publishedEvents = []
+
+def hashPassword(password, salt = None, hash_algorithm = "sha224"):
+    try:
+	if not salt: salt = b64encode(os.urandom(6))
+	salted_passwd = str(salt) + str(password)
+	h = hashlib.new(hash_algorithm)
+	h.update(salted_passwd)
+	
+	return (hash_algorithm, salt, b64encode(h.digest()))
+	
+    except:
+	print " ** unhandled error on hashPassword! ** "
+	print traceback.format_exc()
+    return (None,None,None)
+
 
 class ProcessReturn:
     def __init__(self, id = "", type = "", value = None, error = None):
@@ -30,12 +48,14 @@ class BaseClass:
 class BaseChatter():
     stdout_debug = False
     memory_debug = False
+    security_shelve = None             # shelve is a conf.file where the users are saved.
+    trust_localhost_only = True     # Set to false if you want to connect from other ip addresses using trust. 
     
     def __init__(self,sock, addr):
         self.debuglog = []
 
 	self.securityPerms = set([])
-	self.username = "guest"
+	self.username = None
 	
         self.sock = sock
         self.ibuffer = []
@@ -46,6 +66,78 @@ class BaseChatter():
         self.consecutive_errors = 0
         self.found_terminator = False
         self.error = False
+    
+    def getUserFromShelve(self, username=None):
+	if not username: username = self.username
+	username = str(username)
+	if not self.security_shelve: raise NameError,"This Chatter doesn't have any user database related."
+	if 'users' not in self.security_shelve: raise NameError,"This Chatter doesn't have any user table."
+	shUsers = self.security_shelve['users']
+	if username not in shUsers: return False
+	User = shUsers[username]
+	
+	return User
+    
+    def loginProcess(self, username, password, publickey):
+	User = self.getUserFromShelve(username)
+	
+	method = "trust" # trust is the last one
+	if password: method = "password"
+	if publickey:  method = "publickey" # publickey is preferred
+	
+	if method not in User['auth-methods']: return False
+	auth = False
+	if method == "trust": auth = self.authTrust(username)
+	if method == "password": auth = self.authPassword(username, password)
+	if method == "publickey": auth = self.authPublicKey(username, publickey)
+	
+	if auth: return self.authenticateUser(username)
+
+	
+	return False
+    
+    def authTrust(self,username):
+	host, port = self.sock.getpeername()
+	if host == '127.0.0.1' or host == '::1': return True
+	elif self.trust_localhost_only: return False
+	
+	return True
+    
+    def authPassword(self,username, password):
+	User = self.getUserFromShelve(username)
+	if 'password' not in User: return False # no passwd set yet!
+	try:
+	    hash_algorithm, salt, hashresult = User['password']
+	    if not salt: salt = ""
+	    pass_tuple = hashPassword(password, salt = salt, hash_algorithm = hash_algorithm)
+	    if pass_tuple == User['password']: return True
+	    return False
+	except:
+	    print " ** unhandled error on auth! ** "
+	    print traceback.format_exc()
+	    return False
+	
+	
+    def authPublicKey(self,username, publickey):
+	return False # not done!
+    
+    def authenticateUser(self,username):
+	User = self.getUserFromShelve(username)
+	
+	try:
+	    user_security_perms = set(User['security-perms'])
+	except:
+	    user_security_perms = set([])
+	
+	# If an user doesn't have irpc.authenticate, it means: account disabled.
+	if 'irpc.authenticate' not in user_security_perms: return False
+	
+	self.username = User['username']
+
+	self.securityPerms = user_security_perms
+	return True
+	
+    
     
     def loop(self):
         while not self.error:
@@ -679,19 +771,19 @@ class curry:
         return self.fun(*(self.args + args), **kw)
 
 class publishedFn:
-    def __init__(self, fun, reqPerms = [], chatter = False, callData = False, curry_args = [], curry_kwargs = {}):
+    def __init__(self, fun, requisites = [], chatter = False, calldata = False, curry_args = [], curry_kwargs = {}):
         self.fun = fun
-        self.reqPerms = set(reqPerms)
+        self.requisites = set(requisites)
         self.wants_chatter = chatter
-        self.wants_callData = callData
+        self.wants_calldata = calldata
         self.__name__ = fun.__name__
         self.curry_args = curry_args[:]
         self.curry_kwargs = curry_kwargs.copy()
 
     def test(self, chatter, calldata):
-	if len(self.reqPerms):
+	if len(self.requisites):
 	    if chatter is None: raise NameError, "This method call requires _irpcchatter"
-	    remaining = self.reqPerms - set(chatter.securityPerms)
+	    remaining = self.requisites - set(chatter.securityPerms)
 	    if len(remaining): return False
 	    
 	return True
@@ -708,9 +800,9 @@ class publishedFn:
 	
 	if '_calldata' in kwargs:
 	    calldata = kwargs['_calldata']
-	    if not self.wants_callData: del kwargs['_calldata']
+	    if not self.wants_calldata: del kwargs['_calldata']
 	else:
-	    if self.wants_callData: raise NameError, "This method call requires _calldata"
+	    if self.wants_calldata: raise NameError, "This method call requires _calldata"
 	    
 	if not self.test(chatter, calldata):
 	    raise NameError, "The current user cannot execute this call!"
@@ -731,16 +823,25 @@ class publishedFn:
 	#return self.fun(*args,**kwargs)
 
 
-class securityPerms:
-    logged = 10
-    # changeown -- 100
-    changeownPassword = 101
+securityPerms = set([
+    'irpc.authenticate',
+    # changeOwn 
+    'irpc.changeOwnPassword',
     
-    # Admin -- 1000
-    canAdminUsers = 1001
+    # Admin 
+    'irpc.adminUsers',
     
-    # user-defined-security params -- 10000
+    # user-defined-security params 
+    ])
+
+def addSecurityPerm(appname, permname):
+    appname = str(appname)
+    permname = str(permname)
+    if '.' in appname: raise NameError,"No dots allowed in appname"
+    if '.' in permname: raise NameError,"No dots allowed in permname"
+    fullpermname = appname + '.' + permname
     
+
 # ----- Decorators -------
 def published(**kwargs):
     def decorator(f):
@@ -753,20 +854,39 @@ def published(**kwargs):
 
 # ----------------------------
 
-@published(chatter = True)
-def getFunctionList(_irpcchatter):
-    registered_functions = _irpcchatter.language.cmds.execute.registered_functions
+@published(chatter = True, calldata = True)
+def getFunctionList(_irpcchatter, _calldata):
+    registered_functions = _irpcchatter.language.cmds.execute.registered_functions.copy()
+    for name, fn in registered_functions.copy().iteritems():
+	try:
+	    result = fn.test(_irpcchatter,_calldata)
+	except:
+	    result = False
+	if not result: del registered_functions[name]
+    
     return list(registered_functions.keys())
 
 
 @published(chatter = True)
-def login(username, _irpcchatter):
-    _irpcchatter.username = username
-    return True
+def login(username, password = None, publickey = None, _irpcchatter = None):
+    return _irpcchatter.loginProcess(username,password,publickey)
 
 @published(chatter = True)
 def whoami(_irpcchatter):
     return _irpcchatter.username 
+    
+@published(chatter = True)
+def whaticando(_irpcchatter):
+    return list(_irpcchatter.securityPerms)
+
+@published(chatter = True,requisites = ['irpc.changeOwnPassword','irpc.authenticate'])
+def passwd(new, _irpcchatter):
+    passwdtuple = hashPassword(new)
+    User = _irpcchatter.getUserFromShelve()
+    _irpcchatter.security_shelve['users'][_irpcchatter.username]['password'] = passwdtuple
+    _irpcchatter.security_shelve.sync()
+    return passwdtuple
+
 
 def main():
 

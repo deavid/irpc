@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-
+import shelve
 import socket
 import threading
 import SocketServer as socketserver 
@@ -10,6 +10,8 @@ import random
 import irpcchatter
 
 exit = False
+default_root_username = 'root'
+default_root_password = 'irpc'
 
 def sigINT(signum, frame):
     global exit
@@ -37,6 +39,11 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     allow_reuse_address = True
     active_requests = []
     def exit(self):
+	try:
+	    if irpcchatter.BaseChatter.security_shelve:
+		irpcchatter.BaseChatter.security_shelve.close()
+	except:
+	    pass
 	for req in self.active_requests:
 	    req.chatter.error = True
 	    req.request.setblocking(0)
@@ -45,14 +52,40 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 	if hasattr(self,"shutdown"):
 	    self.shutdown()
 	
+def securityShelveInstallUsers(security_shelve):
+    global default_root_username, default_root_password
+    
+    rootUser = {
+	'username' : default_root_username,
+	'auth-methods' : ['trust','password'],
+	'password' : irpcchatter.hashPassword(default_root_password),
+	'publickeys' : [],
+	'security-perms' : irpcchatter.securityPerms,
+    }
+    
+    users = {
+	default_root_username : rootUser
+    }
+    security_shelve['users'] = users
+    security_shelve.sync()
+    
+def securityShelveInstall(security_shelve):
+    if 'users' not in security_shelve: securityShelveInstallUsers(security_shelve)
+    
     
 
-def startServer(HOST="", PORT=10000):
+def startServer(HOST="", PORT=10000, security_shelve_filename='security.shelve'):
     server = ThreadedTCPServer((HOST, PORT), ThreadedTCPRequestHandler)
     ip, port = server.server_address
 
     server.lang = irpcchatter.BaseLanguageSpec()
-
+    security_shelve = shelve.open(security_shelve_filename, writeback=True)
+    
+    securityShelveInstall(security_shelve)
+    
+    irpcchatter.BaseChatter.security_shelve = security_shelve
+    
+    
     # Start a thread with the server -- that thread will then start one
     # more thread for each request
     server_thread = threading.Thread(target=server.serve_forever)
@@ -74,7 +107,7 @@ def import_examplefuncitons():
 
 def main():
     global exit
-    import_examplefuncitons()
+    #import_examplefuncitons()
     #irpcchatter.BaseChatter.stdout_debug = True
     exit = False
     signal.signal(signal.SIGINT, sigINT)
