@@ -251,7 +251,7 @@ def main():
     remote.connect("testEvent",testEvent)
     remote.call("clearItems")
     #testSerialized(remote,iterations = 1000)
-    testConcurrent(remote,iterations = 1000)
+    testConcurrent(remote,iterations = 10000)
     #print sum(remote.call("getItems"))
     
     print "done"

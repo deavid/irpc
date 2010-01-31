@@ -107,7 +107,7 @@ def import_examplefuncitons():
 
 def main():
     global exit
-    #import_examplefuncitons()
+    import_examplefuncitons()
     #irpcchatter.BaseChatter.stdout_debug = True
     exit = False
     signal.signal(signal.SIGINT, sigINT)

@@ -9,9 +9,10 @@ itera_1 = 0
 def addItem(item):
     global listItems, itera_1
     itera_1 += 1
-    if itera_1 > 100:
+    if itera_1 > 1000:
 	itera_1 = 0
         testEvent.signalRaise(item=item)
+        listItems = listItems[:50]
     listItems.append(item)
     return True
 
