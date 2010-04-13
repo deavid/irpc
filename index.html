@@ -80,10 +80,21 @@
         <p>IRPC is a protocol aimed to do really fast communications between applications and/or services over the network in a easy way. </p>
         <p>There is a stable code for python 2.5 or later</p>
         <h2>Benefits</h2>
+        <h3>IRPC version 1</h3>
         <ul>
         <li><b>Minimal use of bandwith:</b> IRPC is optimized <u>by design</u> for low bandwidth. It uses JSON for value encoding instead of XML to avoid excessive markup.</li>
         <li><b>Human-readable protocol:</b> If you see what's going inside an IRPC server connection you'll see a format readable and easy to understand.</li>
+        <li><b>Multiple commands per connection:</b> Instead of doind one call per connection (like XMLRPC), with IRPC the connection is opened once, removing the connection delay for each query.</li>
+        <li><b>Support for parallel queries:</b> It is possible to ask a new query without waiting for the response of the prior one. This virtually removes the network lag in some situations. </li>
+        <li><b>Events/Callbacks:</b> Tired of polling your XMLRPC server to know when has finished the work? IRPC supports event callbacks. When something happens in the server you can set up a callback which will be called every time the event fires.</li>
         </ul>
+        <h3>IRPC version 2</h3>
+        <ul>
+        <li><b>Security:</b> There are features in IRPCv2 that allow to cipher some private data like passwords. The daeomn does a dynamic ECC publickey generation which doesn't require any initial setup.</li>
+        <li><b>Authentication:</b> The main problem in several RPC protocols is, that everybody can connect and call your functions. IRPCv2 has authentication, which can limit which users connect to which services, and inside each service, a user can have several permissions. </li>
+        <li><b>Client Service Design:</b> Don't worry about listening ports if you want to write a new service or a client application. Your software will be always the client part in a TPC/IP connection. IRPCv2 has a daemon which routes the client applications to the services.</li>
+        </ul>
+        
         <h2>License</h2>
 <p>LGPLv2 or later</p>
 <h2>Authors</h2>
