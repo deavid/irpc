@@ -3,61 +3,96 @@
 
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
 <head>
-	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 
-	<title>deavid/irpc @ GitHub</title>
-	
-	<style type="text/css">
-		body {
-  		margin-top: 1.0em;
-  		background-color: #11397e;
-		  font-family: "Helvetica,Arial,FreeSans";
-  		color: #ffffff;
-    }
-    #container {
-      margin: 0 auto;
-      width: 700px;
-    }
-		h1 { font-size: 3.8em; color: #eec681; margin-bottom: 3px; }
-		h1 .small { font-size: 0.4em; }
-		h1 a { text-decoration: none }
-		h2 { font-size: 1.5em; color: #eec681; }
-    h3 { text-align: center; color: #eec681; }
-    a { color: #eec681; }
-    .description { font-size: 1.2em; margin-bottom: 30px; margin-top: 30px; font-style: italic;}
-    .download { float: right; }
-		pre { background: #000; color: #fff; padding: 15px;}
-    hr { border: 0; width: 80%; border-bottom: 1px solid #aaa}
-    .footer { text-align:center; padding-top:30px; font-style: italic; }
-	</style>
+    <title>deavid/irpc @ GitHub</title>
+    
+    <style type="text/css">
+        body {
+            top: 0px;
+            margin-top: 0px;
+            background-color: #004;
+            font-family: "Helvetica,Arial,FreeSans";
+            color: #ffffff;
+            margin: 0;
+            padding: 0;
+        }
+        #body {
+            background-color: #456; /* 148 */
+            padding: 2em;
+            border-left: 2px solid #134;
+            border-right: 2px solid #134;
+        }
+        
+        .container {
+            margin: 0 auto;
+            width: 700px;
+        }
+        
+        #header {
+        margin: 0;
+        height: 150px;
+        top: 0;
+        margin-top:0;
+        background: #013 url("images/title-background.png") repeat-x;
+        border-bottom: 4px solid #eec681;
+        }
+        #header h1 {
+            margin-top: 0;
+        }
+        h1,h2,h3,h4,h5 { margin-top: 0.3em; }
+        h1 { font-size: 3.8em; color: #eec681; margin-bottom: 3px; }
+        h1 .small { font-size: 0.4em; }
+        h1 a { text-decoration: none }
+        h2 { font-size: 1.5em; color: #eec681; border-bottom: 1px solid #eec681; }
+        h3 { text-align: center; color: #eec681; }
+        a { color: #eec681; }
+        .description { font-size: 1.2em; margin-bottom: 30px; margin-top: 30px; font-style: italic;}
+        .download { float: right; }
+                    pre { background: #000; color: #fff; padding: 15px;}
+        hr { border: 0; width: 80%; border-bottom: 1px solid #aaa}
+        .footer { text-align:center; padding-top:30px; font-style: italic; }
+    </style>
 	
 </head>
 
 <body>
-  <a href="http://github.com/deavid/irpc"><img style="position: absolute; top: 0; right: 0; border: 0;" src="http://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub" /></a>
+    <a href="http://github.com/deavid/irpc"><img style="position: absolute; top: 0; right: 0; border: 0;" src="http://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub" /></a>
 
-  <div id="container">
+    <div id="header">
+        <div class="container">
+            <div class="download">
+            <a href="http://github.com/deavid/irpc/zipball/master">
+                <img border="0" width="90" src="http://github.com/images/modules/download/zip.png"></a>
+            <a href="http://github.com/deavid/irpc/tarball/master">
+                <img border="0" width="90" src="http://github.com/images/modules/download/tar.png"></a>
+            </div>
+            <h1><a href="http://github.com/deavid/irpc">IRPC</a>
+            <span class="small">by <a href="http://github.com/deavid">deavid</a></span></h1>
 
-    <div class="download">
-      <a href="http://github.com/deavid/irpc/zipball/master">
-        <img border="0" width="90" src="http://github.com/images/modules/download/zip.png"></a>
-      <a href="http://github.com/deavid/irpc/tarball/master">
-        <img border="0" width="90" src="http://github.com/images/modules/download/tar.png"></a>
+            <div class="description">
+                &mdash; Process control made easy &mdash; 
+            </div>
+        </div>
     </div>
-
-    <h1><a href="http://github.com/deavid/irpc">irpc</a>
-      <span class="small">by <a href="http://github.com/deavid">deavid</a></span></h1>
-
-    <div class="description">
-      irpc protocol (Interactive Remote Process Control)
-    </div>
-
-    <p>IRPC is a protocol aimed to do really fast communications between applications and/or services over the network in a easy way. </p><h2>License</h2>
+    <div class="container" id="body">
+        <h2>About</h2>
+        <p>IRPC is a protocol aimed to do really fast communications between applications and/or services over the network in a easy way. </p>
+        <p>There is a stable code for python 2.5 or later</p>
+        <h2>Benefits</h2>
+        <ul>
+        <li><b>Minimal use of bandwith:</b> IRPC is optimized <u>by design</u> for low bandwidth. It uses JSON for value encoding instead of XML to avoid excessive markup.</li>
+        <li><b>Human-readable protocol:</b> If you see what's going inside an IRPC server connection you'll see a format readable and easy to understand.</li>
+        </ul>
+        <h2>License</h2>
 <p>LGPLv2 or later</p>
 <h2>Authors</h2>
-<p>David Martinez Marti (desarrollo@gestiweb.com)<br/><br/>      </p>
+<p>David Martinez Marti (desarrollo@gestiweb.com)
+<br/>
+<br/>      </p>
 <h2>Contact</h2>
-<p>David Martínez Martí (deavidsedice@gmail.com)<br/>      </p>
+<p>David Martínez Martí (deavidsedice@gmail.com)
+<br/>      </p>
 
 
     <h2>Download</h2>
