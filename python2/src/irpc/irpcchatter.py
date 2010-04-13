@@ -63,6 +63,7 @@ class BaseChatter():
         self.addr = addr
         self.language = None
         self.comm_rlock = threading.RLock()
+        self.debug_lock= threading.Lock()
         self.consecutive_errors = 0
         self.found_terminator = False
         self.error = False
@@ -165,8 +166,12 @@ class BaseChatter():
 		
     def debug(self,vtype,var):
 	try:
+	    if self.stdout_debug or self.memory_debug:
+		self.debug_lock.acquire()
 	    if self.stdout_debug: print vtype,var
 	    if self.memory_debug: self.debuglog.append((vtype,var))
+	    if self.stdout_debug or self.memory_debug:
+		self.debug_lock.release()
 	except:
 	    print traceback.format_exc()
 	
@@ -323,8 +328,8 @@ class LanguageProcessor:
 
 class QueuedAnswer:
     def __init__(self, id, cmdanswer = None, autoremove = True):
-        if id in cmdanswer.answerqueue:
-            raise(NameError,"QueuedAnswer %s already queued!" % id)
+        #if id in cmdanswer.answerqueue:
+        #    raise(NameError,"QueuedAnswer %s already queued!" % id)
         self.id = id
         self.type = ""
         self.value = ""

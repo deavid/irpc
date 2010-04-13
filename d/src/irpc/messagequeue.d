@@ -2,7 +2,7 @@ module messagequeue;
 
 import std.stdio;
 import std.c.time;
-
+import std.gc;
 
 
 class circularBuffer(TItem)
@@ -16,13 +16,19 @@ class circularBuffer(TItem)
     int size = 0;
     int readsz = 0;
     int writesz = 0;
+    int acc_read = 0;
+    int acc_write = 0;
     
     public:
-    this(int queueSize = 1024) 
+    this(int queueSize = 64) 
     {
 	queue.length = queueSize;
 	size = queueSize;
 	writesz = size;
+    }
+    ~this() 
+    {
+	printStatus();
     }
     
     int getReadSz()
@@ -44,10 +50,12 @@ class circularBuffer(TItem)
 	assert(writesz>MIN_SIZE);
 	if (writecursor==size) writecursor-=size;
 	assert(writecursor<size);
+	addRoot(cast(void*)item);
 	queue[writecursor]=item;
 	writesz--;
 	writecursor++;
 	readsz++;
+	acc_write++;
 	return true;
     }
     
@@ -57,9 +65,11 @@ class circularBuffer(TItem)
 	if (readcursor==size) readcursor-=size;
 	assert(readcursor<size);
 	item = queue[readcursor];
+	removeRoot(cast(void*)item);
 	readcursor++;
 	readsz--;
 	writesz++;
+	acc_read ++;
 	return true;
     }
     void printStatus()
@@ -68,8 +78,8 @@ class circularBuffer(TItem)
 	writefln(" - size: %d items. ", size);
 	writefln(" - items waiting read: %d items. ", readsz);
 	writefln(" - items available for write: %d items. ", writesz);
-	writefln(" - write cursor at %d ", writecursor);
-	writefln(" - read cursor at %d ", readcursor);
+	writefln(" - write cursor at %d (%d,%d)", writecursor, acc_write % size,acc_write / size);
+	writefln(" - read cursor at %d (%d,%d)", readcursor, acc_read % size,acc_read / size);
 	writefln(" - queue length: %d ", queue.length);
 	
     }

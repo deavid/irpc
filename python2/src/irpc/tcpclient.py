@@ -7,6 +7,7 @@ import time
 import cjson
 
 import irpcchatter
+idcounter = 0
 
 class ExecuteRemoteCommand:
     def __init__(self,chatter, command, local_args = [], local_kwargs = {}, args = [], kwargs = {}, autoremove_id = True):
@@ -28,13 +29,19 @@ class ExecuteRemoteCommand:
     def getUnqueuedRandID(self):
         if self.autoremove_id:
             def key():
-                import random
-                i = random.randint(0,255)
+		global idcounter 
+		idcounter +=1;
+		i = idcounter;
+                #import random
+                #i = random.randint(0,2*(len(self.chatter.language.cmds.answer.answerqueue)+10))
                 return "x%X" % i
         else:
             def key():
-                import random
-                i = random.randint(0,256*256-1)
+		global idcounter 
+		idcounter +=1;
+		i = idcounter;
+                #import random
+                #i = random.randint(0,2*(len(self.chatter.language.cmds.answer.answerqueue)+10))
                 return "%s%X" % (self.command[:2],i)
             
         k = key()
@@ -145,7 +152,7 @@ class RemoteIRPC:
 
     def help_ev(self, fn, *args, **kwargs): 
 	return self.execmd("help",{'ev':fn}, *args, **kwargs)
-
+    
     def execmd(self, cmd, local_kwargs, *args, **kwargs): 
         #ret = self.execute("call",local_kwargs={"fn":fn},args = args,kwargs = kwargs)
         #print ret.type
@@ -239,6 +246,10 @@ def testConcurrent(remote,iterations):
     lstExe = []
     for n in range(iterations):
         lstExe.append(remote.call("addItem", item=n, getReturnValue = False))
+        if len(lstExe)>15: 
+	    exe = lstExe.pop(0)
+	    exe.getReturnValue()
+	    del exe
         
     for exe in lstExe: exe.getReturnValue()
     
@@ -247,9 +258,10 @@ def testEvent(item):
     print "Event for Item:",item
 
 def main():
+    #irpcchatter.BaseChatter.stdout_debug = True
     remote = RemoteIRPC("localhost",10123)
-    remote.connect("testEvent",testEvent)
-    remote.call("clearItems")
+    #remote.connect("testEvent",testEvent)
+    #remote.call("clearItems")
     #testSerialized(remote,iterations = 1000)
     testConcurrent(remote,iterations = 10000)
     #print sum(remote.call("getItems"))
@@ -260,10 +272,10 @@ def main():
 
 if __name__ == "__main__":
     # Import Psyco if available
-    try:
-        import psyco
-        #psyco.full()
-    except ImportError:
-        pass
+    #try:
+    #    import psyco
+    #    #psyco.full()
+    #except ImportError:
+    #    pass
     
     main()
