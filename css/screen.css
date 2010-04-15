@@ -2,7 +2,7 @@ body {
     top: 0px;
     margin-top: 0px;
     background-color: #004;
-    font-family: "Times New Roman", FreeSerif, serif;
+    font-family: "Liberation Serif", "Times New Roman", FreeSerif, serif;
     font-size: 16px;
     color: #ffffff;
     margin: 0;
@@ -24,19 +24,23 @@ body {
     width: 750px;
     padding: 0;
     padding-left: 10px;
-    padding-top: 0.2em;
+    padding-top: 0.5em;
     background-color: #456; 
     border-left: 2px solid #134;
     border-right: 2px solid #134;
+    font-size: 14px;
+}
+#primarylinks li a {
+    text-decoration: none;
 }
 
 #primarylinks li {
     display: inline;
     border: 1px solid #eec681;
     color: #f4e081;
-    padding-right: 1em;
-    padding-left: 1em;
-    padding-top: 0.2em;
+    padding-right: 0.5em;
+    padding-left: 0.5em;
+    padding-top: 0.5em;
     padding-bottom: 0.5em;
     margin:0;
     background: #024;
