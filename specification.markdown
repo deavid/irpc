@@ -32,8 +32,8 @@ reserved for this use).
 The first character of a message is the message type. Probably we can have up to 
 90 message types, but actually we're using mainly two:
 
-1. message type command `!`: A request to the other part of the connection.
-2. message type response `>`: A response to a previous command from the other end.
+1. message type *execute* `!`: A request to the other part of the connection.
+2. message type *answer* `>`: A response to a previous command from the other end.
 
 Each message type can have its own format and decoders, but generally they share 
 the same structure. Generally, all messages have several fields separated by tabs
@@ -41,5 +41,77 @@ the same structure. Generally, all messages have several fields separated by tab
 
 ### layer 2.1 - command format ###
 
+Commands must follow this syntax:
+
+1. message type character, which is always `!`
+2. command name, for example `call`
+3. optionally, an id for this command (must be prefixed with @) `@3a`
+4. none or more parameters (explained bellow) separated by tabs `\t`
+5. end with newline `\n`
+
+A parameter can be an internal parameter, or an external argument, depending on the case
+the syntax is:
+
+1. internal parameters have the format `param_name:raw_value`
+2. external arguments have the format `arg_name:json_value`
+
+* where param_name and arg_name can be any literal following the conventions for naming 
+  a variable. That is, following this regexp `[a-zA-Z][a-zA-Z0-9_]*`. Optionally
+  they could be empty, meaning that is an ordered argument call, but that method is 
+  discouraged.
+* where raw_value is almost any literal which can be represented in 
+  7-bits and doesn't include any control character.
+* where json_value is any valid JSON string.
+
+Some command examples:
+
+    !call   fn:sortlist     lista=[5,2,7,9,1,6,3,7,4,2,8,0]
+    !help   fn:reverselist
+    !monitor@mo2787 ev:testEvent
+
+Command names are also defined by the IRPC, and at the moment the list of command names is:
+
+* **call:** calls a remote function specified by *fn* bypassing to that function 
+  the arguments (also works with events using *ev* instead of *fn*)
+* **help:** returns a help string (actually is not machine-friendly) about a 
+  function *fn* (also works with events using *ev* instead of *fn*)
+* **montior:** starts or stops* the monitoring for a event change.
+
+NOTE: Actual implementation of monitor doesn't allow stop yet.
+
 ### layer 2.2 - response format ###
+
+Responses follow this format:
+1. message type character, which is always `>`
+2. optionally the id for the originating command `3a`
+3. tab separator `\t`
+4. type of the data returned, generally an empty string
+5. tab separator `\t`
+6. Value of the response encoded using JSON
+7. end with newline `\n`
+
+Some examples of response:
+
+    >       "getFunctionList(self) method of irpcchatter.CMD_Execute instance\n"
+    >01     "signal testEvent(item)"
+    >       null
+
+
+### layer 3.1 - predefined functions ###
+
+IRPC also defines some base functions for introspection, authentication, and some more.
+There is a list of the existent functions at the moment:
+
+* **getFunctionList**: returns a list containing all functions published. 
+* **getEventList**: returns a list containing all events published. *(not working in the actual implementation)*
+* **login**: authenticates using login and password. Optionally can use public key method or PSK *(actual implementation only works with password)*
+* **whoami**: returns the username currently logged or None.
+* **whaticando**: returns a list of security permissions that are granted.
+* **passwd**: changes the password of the currently logged user.
+
+
+### layer 3.2 - predefined events ###
+
+Actually there aren't any predefined events in IRPC, but it is possible to have
+some in the future.
 

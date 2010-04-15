@@ -30,7 +30,7 @@ python module. The handicap here is, that were using a lot of CPU only because i
 Python (an interpreter) which decodes the messages.
 
 My benchmarks show that one machine (Athlon64 @ 2Ghz) holding the server and the 
-client can  process up to 1200 messages per second. (the size of each message 
+client can  process up to 3200 messages per second. (the size of each message 
 doesn't matter)
 
 If you are using XMLRPC over the internet and you feel that it isn't fast enough 

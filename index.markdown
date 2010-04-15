@@ -26,10 +26,9 @@ for those services, or a new service to manage those pieces in a different way.
 
 Actual Status
 -----------------------------------------
-Sadly, IRPC is at the moment only a concept. I have one initial implementation for
-Python2.5 which covers most of the features for IRPCv1 (and probably some 
-concepts from IRPCv2). I'm using versions of that implementation for my own projects
-and seems to be very easy to use.
+I have one initial implementation for Python2.5 which covers most of the features for IRPCv1. 
+
+I'm using versions of that implementation for my own projects and seems to be very easy to use.
 
 **At the moment, IRPCv2 is only a draft and 
 there is no implementation available**
