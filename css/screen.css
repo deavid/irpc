@@ -10,9 +10,36 @@ body {
 }
 #body {
     background-color: #456; /* 148 */
-    padding: 2em;
+    padding: 30px;
+    padding-top: 0.8em;
+    padding-bottom: 0.5em;
     border-left: 2px solid #134;
     border-right: 2px solid #134;
+    margin-bottom: 2em;
+    border-bottom: 2px solid #134;
+}
+
+#primarylinks {
+    margin: 0 auto;
+    width: 750px;
+    padding: 0;
+    padding-left: 10px;
+    padding-top: 0.2em;
+    background-color: #456; 
+    border-left: 2px solid #134;
+    border-right: 2px solid #134;
+}
+
+#primarylinks li {
+    display: inline;
+    border: 1px solid #eec681;
+    color: #f4e081;
+    padding-right: 1em;
+    padding-left: 1em;
+    padding-top: 0.2em;
+    padding-bottom: 0.5em;
+    margin:0;
+    background: #024;
 }
 
 .container {
@@ -30,14 +57,19 @@ border-bottom: 4px solid #eec681;
 }
 #header h1 { 
     margin-top: 0;
+    font-size: 3.8em; color: #eec681; margin-bottom: 3px;
 }
 h1,h2,h3,h4,h5 { margin-top: 0.3em; }
-h1 { font-size: 3.8em; color: #eec681; margin-bottom: 3px; }
 h1 .small { font-size: 0.4em; }
 h1 a { text-decoration: none }
-h2 { font-size: 1.5em; color: #eec681; border-bottom: 1px solid #eec681; }
+#body h1 { font-size: 1.6em; color: #eec681; border-bottom: 2px solid #eec681; }
+h2 { font-size: 1.4em; color: #eec681; border-bottom: 1px solid #eec681; }
 h3 { text-align: center; color: #eec681; }
-a { color: #eec681; }
+a { color: #f4e081; }
+a:hover { color: #ff0; }
+a:active { color: #fff; text-decoration: none; }
+
+
 .description { font-size: 1.2em; margin-bottom: 30px; margin-top: 30px; font-style: italic;}
 .download { float: right; }
 code {
@@ -47,4 +79,4 @@ code, pre { background: #000; color: #fff; }
 pre { padding: 15px;}
             
 hr { border: 0; width: 80%; border-bottom: 1px solid #aaa}
-.footer { text-align:center; padding-top:30px; font-style: italic; }
+.footer { text-align:center; margin-top:30px; font-style: italic; border-top: 1px solid #fff; padding-top: 0.5em;}

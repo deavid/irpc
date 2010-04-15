@@ -5,7 +5,7 @@
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 
-    <title>{{ page.title }}</title>
+    <title>{{ page.title }} - {{ page.subtitle }}</title>
     <link rel="stylesheet" href="css/screen.css" type="text/css" media="screen, projection" />    
         
 </head>
@@ -25,11 +25,19 @@
             <span class="small">by <a href="http://github.com/deavid">deavid</a></span></h1>
 
             <div class="description">
-                &mdash; Process control made easy &mdash; 
+                &mdash; {{ page.subtitle }} &mdash; 
             </div>
         </div>
     </div>
+    <ul id="primarylinks" class="menu">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="specification.html">Specification</a></li>
+        <li><a href="examples.html">Examples of use</a></li>
+        <li><a href="benchmarks.html">Benchmarks</a></li>
+        <li><a href="download.html">Downloads</a></li>
+    </ul>
     <div class="container" id="body">
+
     {{ content }}
     <div class="footer">
       get the source code on GitHub : <a href="http://github.com/deavid/irpc">deavid/irpc</a>
