@@ -95,6 +95,5 @@ Contact
 ----------------------------
 Please contact me if you liked the main idea behind IRPC.
 
-David Martínez Martí (deavidsedice@gmail.com)
-
+mailing list: irpcprotocol@googlegroups.com
 

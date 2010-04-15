@@ -47,7 +47,7 @@ can have your public functions for IRPC.
 
 That file can be like this:
 {% highlight python %}
-import irpcchatter
+from irpc import irpcchatter
 
 listItems = []
 
