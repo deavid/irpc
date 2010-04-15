@@ -64,6 +64,10 @@ Benefits
     
 * **Introspection:** There are functions to see what is inside each 
     service, which functions are callable, etc.
+    
+* **Authentication:** The main problem in several RPC protocols is, that 
+    everybody can connect and call your functions. IRPCv1 has authentication, 
+    which can limit which users can make use of which functions.
 
 ### IRPC version 2 ###
 
@@ -71,10 +75,8 @@ Benefits
     data like passwords. The daeomn does a dynamic ECC publickey generation 
     which doesn't require any initial setup.
     
-* **Authentication:** The main problem in several RPC protocols is, that 
-    everybody can connect and call your functions. IRPCv2 has authentication, 
-    which can limit which users connect to which services, and inside each 
-    service, a user can have several permissions. 
+* **Authentication:** IRPCv2 has server authentication, 
+    which can limit which users connect to which services.
     
 * **Client Service Design:** Don't worry about listening ports if you want to 
     write a new service or a client application. Your software will be always 
