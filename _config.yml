@@ -1,2 +1,8 @@
 exclude:  python2 d
 markdown: maruku
+pygments: true
+maruku:
+  use_tex:    false
+  use_divs:   false
+  png_dir:    images/latex
+  png_url:    /images/latex

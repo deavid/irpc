@@ -5,7 +5,12 @@ subtitle: Process control made easy
 ---
 
 Download
-----------------------------
+==============================
+
+Currently there are no official releases for IRPC. 
+
+Source
+------------------------------
 
 You can download this project 
 in either [zip](http://github.com/deavid/irpc/zipball/master)

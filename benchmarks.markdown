@@ -1,11 +1,11 @@
 ---
 layout: default
-title: IRPC Speed
+title: IRPC Speed and benchmarks
 subtitle: Because speed matters
 ---
 
 Speed and some benchmarks
-----------------------------
+=================================
 
 IRPC messages tend to be small, most of them can be under 50 bytes long. Of course 
 that number could be much much bigger depending on the size of data you are sending.

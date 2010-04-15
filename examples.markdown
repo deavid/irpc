@@ -32,3 +32,17 @@ And there are some tecniques aimed to avoid or mitigate network lags.
 
 IRPC is designed to work best with very-high level languages like Python, Ruby
 and so on. This makes IRPC very easy to integrate with your existent python project.
+
+
+Example #1 - Monitoring your service from home
+--------------------------------------------------------
+
+Lets say we have written a piece of software which acts as a system deamon, waiting 
+for someone put files in a folder via FTP, it reads the files, do some calulations and
+move the file to other folder. Then, say we want to know from our computer any errors 
+happened to the service, and we want to change the service configuration too.
+
+With IRPC, your desktop application will connect to the service via TCP/IP (the service
+will have a listening socket), will ask for errors between the last time the application
+was connected to the service and now, and after that, will set up a event callback: 
+the service will call you every time a new error occurs, with the information of it.
