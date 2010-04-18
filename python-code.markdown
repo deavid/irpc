@@ -2,6 +2,7 @@
 layout: default
 title: Python implementation of IRPC
 subtitle: Secure, fast and open
+submenus: examples
 ---
 
 Python implementation of IRPCv1

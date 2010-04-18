@@ -2,6 +2,7 @@
 layout: default
 title: Examples of use of IRPC
 subtitle: Secure, fast and open
+submenus: examples
 ---
 
 Examples of use

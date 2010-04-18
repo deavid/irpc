@@ -32,12 +32,22 @@
     <ul id="primarylinks" class="menu">
         <li><a href="index.html">Home</a></li>
         <li><a href="specification.html">Specification</a></li>
-        <li><a href="examples.html">Examples of use</a></li>
-        <li><a href="python-code.html">Python Code</a></li>
+        <li><a href="examples.html">Examples + Code</a></li>
         <li><a href="benchmarks.html">Benchmarks</a></li>
         <li><a href="download.html">Downloads</a></li>
     </ul>
+    
     <div class="container" id="body">
+        {% case page.submenus %}
+            {% when 'examples' %}
+                {% include menus_examples.html %}
+            {% else %}
+                {% if page.submenus == '' %}
+                <!-- no submenus -->
+                {% else %}
+                Error: unknown submenu '{{ page.submenus }}'
+                {% endif %}
+        {% endcase %}
 
     {{ content }}
     <div class="footer">

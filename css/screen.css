@@ -19,6 +19,31 @@ body {
     border-bottom: 2px solid #134;
 }
 
+#secondarylinks{
+    padding: 0;
+    font-size: 14px;
+}
+#secondarylinks li a {
+    text-decoration: none;
+    color: #024;
+}
+#secondarylinks li a:hover {
+    text-decoration: underline;
+}
+
+#secondarylinks li {
+    display: inline;
+    background: #eec681;
+    border: 1px solid #024;
+    color: #024;
+    padding-right: 0.5em;
+    padding-left: 0.5em;
+    padding-top: 0.25em;
+    padding-bottom: 0.25em;
+    margin:0;
+}
+
+
 #primarylinks {
     margin: 0 auto;
     width: 750px;
