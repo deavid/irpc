@@ -133,36 +133,39 @@ the standard, so it will be replaced with:
 * Monitoring an event:
 
 Before, the monitoring of an event was done in this way:
-!call@mo123   monitor   ev:testEvent
+
+	!call@mo123   monitor   ev:testEvent
 
 and there was some inconsistency on the return value (there was more than one per call to monitor)
 
 now it will be:
 
-!call  callback add:callbackName ev:testEvent
+	!call  callback add:callbackName ev:testEvent
 
-it will add a callback named callbackNaame and will be called whenever the event testEvent is fired.
-A message will be recived like:
+it will add a callback named callbackName and will be called whenever the event testEvent is fired.
+A message will be recieved like:
 
-!call  callback fired:callbackName arg1='val1' arg2='val2'
+	!call  callback fired:callbackName arg1=2val1' arg2='val2'
 
 And a callback can be removed like:
 
-!call  callback remove:callbackName 
+	!call  callback remove:callbackName 
 
 **Some possible advantages:**
 
 Adding conditions for calling a callback:
 
-!call  callback add:callbackName ev:testEvent where={'objecttype.equals' : 'string'}
+	!call  callback add:callbackName ev:testEvent 
+	...    where={'objecttype.equals' : 'string'}
 
 Adding new static arguments for calling a callback: 
 
-!call  callback add:callbackName ev:testEvent addargs={'special' : True}
-!call  callback fired:callbackName arg1='val1' arg2='val2' special=True
+	!call  callback add:callbackName ev:testEvent addargs={'special' : True}
+	!call  callback fired:callbackName arg1='val1' arg2='val2' special=True
 
 Discarding arguments:
-!call  callback add:callbackName ev:testEvent rmargs=['arg1']
-!call  callback fired:callbackName arg2='val2' 
+
+	!call  callback add:callbackName ev:testEvent rmargs=['arg1']
+	!call  callback fired:callbackName arg2='val2' 
 
 
