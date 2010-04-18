@@ -4,7 +4,7 @@ title: IRPC specification
 subtitle: Interactive cloud computing
 ---
 
-Specification
+Actual Specification
 ==========================
 
 IRPC defines the protocol in layers, which are configurable inside the implementation
@@ -102,6 +102,8 @@ Some examples of response:
 IRPC also defines some base functions for introspection, authentication, and some more.
 There is a list of the existent functions at the moment:
 
+basic:
+
 * **getFunctionList**: returns a list containing all functions published. 
 * **getEventList**: returns a list containing all events published. *(not working in the actual implementation)*
 * **login**: authenticates using login and password. Optionally can use public key method or PSK *(actual implementation only works with password)*
@@ -109,9 +111,58 @@ There is a list of the existent functions at the moment:
 * **whaticando**: returns a list of security permissions that are granted.
 * **passwd**: changes the password of the currently logged user.
 
+default lang:
+* call
+* help
+* monitor
 
 ### layer 3.2 - predefined events ###
 
 Actually there aren't any predefined events in IRPC, but it is possible to have
 some in the future.
+
+
+Future changes to IRPCv1
+----------------------------------
+
+#### Event notification ####
+
+the actual system for event or signal notification doesn't follow the rest of
+the standard, so it will be replaced with:
+
+* Monitoring an event:
+
+Before, the monitoring of an event was done in this way:
+!call@mo123   monitor   ev:testEvent
+
+and there was some inconsistency on the return value (there was more than one per call to monitor)
+
+now it will be:
+
+!call  callback add:callbackName ev:testEvent
+
+it will add a callback named callbackNaame and will be called whenever the event testEvent is fired.
+A message will be recived like:
+
+!call  callback fired:callbackName arg1='val1' arg2='val2'
+
+And a callback can be removed like:
+
+!call  callback remove:callbackName 
+
+**Some possible advantages:**
+
+Adding conditions for calling a callback:
+
+!call  callback add:callbackName ev:testEvent where={'objecttype.equals' : 'string'}
+
+Adding new static arguments for calling a callback: 
+
+!call  callback add:callbackName ev:testEvent addargs={'special' : True}
+!call  callback fired:callbackName arg1='val1' arg2='val2' special=True
+
+Discarding arguments:
+!call  callback add:callbackName ev:testEvent rmargs=['arg1']
+!call  callback fired:callbackName arg2='val2' 
+
 
