@@ -568,17 +568,26 @@ class CMD_Execute:
         return ret
 
 class RemoteEvent:
-    def __init__(self,name, signal_args = [], returnTypes = [], docstring = "", public = True, *args,**kwargs):
+    def __init__(self,name, requisites = [], signal_args = [], returnTypes = [], docstring = "", public = True, *args,**kwargs):
         self.name = name # event's name
         self.signal_kwargs = signal_args
         self.callback_list = []
         self.returnTypes = returnTypes
         self.event = threading.Event()
         self.docstring = docstring
+        self.requisites = []
         if public:
             global publishedEvents
             publishedEvents.append(self)
-        
+            
+    def test(self, chatter, calldata):
+	if len(self.requisites):
+	    if chatter is None: raise NameError, "This method call requires _irpcchatter"
+	    remaining = self.requisites - set(chatter.securityPerms)
+	    if len(remaining): return False
+	    
+	return True
+            
     def getSignalSignature(self):
         sig = u"signal %s(%s)" % (self.name, ", ".join(self.signal_kwargs))
         if len(self.returnTypes):
@@ -870,6 +879,20 @@ def getFunctionList(_irpcchatter, _calldata):
 	if not result: del registered_functions[name]
     
     return list(registered_functions.keys())
+
+
+@published(chatter = True, calldata = True)
+def getEventList(_irpcchatter, _calldata):
+    registered_events = _irpcchatter.language.cmds.execute.registered_events.copy()
+    for name, ev in registered_events.copy().iteritems():
+	try:
+	    result = ev.test(_irpcchatter,_calldata)
+	except:
+	    result = False
+	if not result: del registered_events[name]
+    
+    return list(registered_events.keys())
+
 
 
 @published(chatter = True)
