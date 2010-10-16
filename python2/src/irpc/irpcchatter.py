@@ -597,10 +597,14 @@ class RemoteEvent:
         return sig
     
     def registerCallback(self, fn, *args, **kwargs):
-        self.callback_list.append((fn,args,kwargs))
+        callback = (fn,args,kwargs)
+        if callback not in self.callback_list:
+            self.callback_list.append(callback)
         
     def unregisterCallback(self, fn, *args, **kwargs):
-        self.callback_list.remove((fn,args,kwargs))
+        callback = (fn,args,kwargs)
+        if callback in self.callback_list:
+            self.callback_list.remove(callback)
         
     def signalRaise(self,*args,**kwargs):
         for k in kwargs.keys():
@@ -650,7 +654,7 @@ class BaseExecFunction:
     def setup(self):
         pass
     
-    def execute(self,ret,cmdname, far_args, far_kwargs, fn = None, ev = None, _irpcchatter = None, _calldata = None): 
+    def execute(self,ret,cmdname, far_args, far_kwargs, sys=None, fn = None, ev = None, _irpcchatter = None, _calldata = None): 
 	far_kwargs['_irpcchatter'] = _irpcchatter 
 	far_kwargs['_calldata'] = _calldata 
         if fn:
@@ -675,6 +679,22 @@ class BaseExecFunction:
                 ret.error = u"Error ocurred executing EVENT %s\n" % ev
                 ret.error += traceback.format_exc()
             return 
+
+        if sys:
+            sys_fn=getattr(self,"sys_%s" % sys, None)
+            if sys_fn is None:
+                ret.error = u"%s is not a system function!" % sys
+                return 
+            try:
+                ret.value = sys_fn(*far_args,*far_kwargs)
+            except:
+                ret.error = u"Error ocurred executing System Function %s\n" % sys
+                ret.error += traceback.format_exc()
+            return 
+
+            
+        ret.error = u"This call requires one of fn:* ev:* or sys:*"
+        return
     
     def callFn(self, funct, args, kwargs,ret):
         raise NameError("This command does NOT have support for functions!")
@@ -708,7 +728,16 @@ class HelpFunction(BaseExecFunction):
 
 class MonitorFunction(BaseExecFunction):
     def callEv(self, event, args, kwargs,ret):
-        event.registerCallback(self.event_callback,event_id = ret.id)
+        self.configureCallback(event,ret,*args,**kwargs)
+    
+    def configureCallback(self,event,ret,action = "enable",*args,**kwargs):
+        if action == "enable":
+            return event.registerCallback(self.event_callback,event_id = ret.id)
+        elif action == "disable":
+            return event.unregisterCallback(self.event_callback,event_id = ret.id)
+        else:
+            return "unknown action %s" % repr(action)
+    
     
     def event_callback(self,event_id, **kwargs):
         ret = ProcessReturn(id = event_id, type = "Signal", value = kwargs)
